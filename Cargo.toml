@@ -1,0 +1,26 @@
+[package]
+name = "kms-secret-service"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "4"
+serde = { version = "1.0", features = ["derive", "std"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
+tokio = { version = "1.33.0", features = ["full"] }
+thiserror = "1.0"
+http = "0.2.9"
+lazy_static = "1.4.0"
+ring = "0.16.20"
+base64 = "0.21.2"
+utoipa = { version = "3.5.0", features = ["actix_extras", "chrono"] }
+utoipa-redoc = { version = "0.1.0", features = ["actix-web"] }
+dotenvy = "0.15.7"
+anyhow = "1.0.72"
+
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-actix-web = "0.7.6"
+tracing-appender = "0.2"

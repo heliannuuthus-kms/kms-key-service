@@ -1,0 +1,26 @@
+name: ci
+
+on: 
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  lint:
+    uses: heliannuuthus/workflow/.github/workflows/call-rust-lint.yml@master
+    with:
+      clippy: false
+  
+
+  build:
+    needs: lint
+    uses: heliannuuthus/workflow/.github/workflows/call-rust-build.yml@master
+
+
+  containeraized:
+    needs: build
+    permissions:
+      contents: read
+      packages: write
+    uses: heliannuuthus/workflow/.github/workflows/call-containerize.yml@master
+    with:
+      version: ${{ needs.build.outputs.version }}
