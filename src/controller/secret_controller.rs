@@ -1,10 +1,10 @@
 use actix_web::{post, web::Json, Responder};
 
-use crate::{common::errors::Result, pojo::form::secret::SymmetricSecretCreateForm};
+use crate::{common::errors::Result, pojo::form::secret::SecretCreateForm};
 
-#[post("/symmetric")]
-pub async fn generate_secret(
-    Json(form): Json<SymmetricSecretCreateForm>,
+#[post("")]
+pub async fn create_secret(
+    Json(form): Json<SecretCreateForm>,
 ) -> Result<impl Responder> {
     
   Ok("")

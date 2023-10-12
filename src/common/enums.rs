@@ -1,5 +1,3 @@
-use std::default;
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
@@ -34,8 +32,8 @@ pub enum KeySpec {
 pub enum KeyState {
     #[default]
     Enable, // 密钥默认处于 enable 状态
-    Disable, /* 处于 Disable
-              * 状态的密钥不可删除，不可使用（加解密，签名验签等），可查询，可创建别名 */
+    Disable,         /* 处于 Disable
+                      * 状态的密钥不可删除，不可使用（加解密，签名验签等），可查询，可创建别名 */
     PendingDeletion, // 待删除的密钥，
     Pendingimport,   // 待导入的密钥
 }
