@@ -22,7 +22,10 @@ async fn main() -> std::io::Result<()> {
         tracing_subscriber::fmt::Subscriber::builder()
             .with_max_level(tracing::Level::DEBUG)
             .finish()
-            .with(tracing_subscriber::fmt::Layer::default().with_writer(non_blocking)),
+            .with(
+                tracing_subscriber::fmt::Layer::default()
+                    .with_writer(non_blocking),
+            ),
     );
     let api_doc = ApiDoc::openapi();
 

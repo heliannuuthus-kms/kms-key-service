@@ -2,6 +2,6 @@ FROM rust:latest
 
 WORKDIR /app
 
-COPY target/release/haauth-server .
+COPY target/release/kms-secret-service .
 
-CMD ["./haauth-server"]
+CMD ["./kms-secret-service"]
