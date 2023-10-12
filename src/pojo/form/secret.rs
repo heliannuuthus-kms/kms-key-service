@@ -12,3 +12,4 @@ pub struct SecretCreateForm {
     rotation_interval: Duration,
     key_spec: KeySpec,
 }
+

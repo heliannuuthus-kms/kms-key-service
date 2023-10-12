@@ -1,6 +1,6 @@
-use actix_web::{App, HttpServer};
+use actix_web::{web, App, HttpServer};
 use common::configs::{env_var, env_var_default};
-use controller::ApiDoc;
+use controller::{secret_controller, ApiDoc};
 use dotenvy::dotenv;
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
@@ -9,6 +9,7 @@ use utoipa_redoc::{Redoc, Servable};
 mod common;
 mod controller;
 mod pojo;
+mod repository;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -33,6 +34,10 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .wrap(TracingLogger::default())
             .service(Redoc::with_url("/openapi", api_doc.clone()))
+            .service(
+                web::scope("/secrets")
+                    .service(secret_controller::create_secret),
+            )
     })
     .bind((
         env_var::<String>("SERVER_HOST"),

@@ -1,3 +1,5 @@
+use std::default;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
@@ -6,6 +8,14 @@ pub enum KeyUseage {
     EncryptAndDecrypt,
     #[serde(rename = "sign/verify")]
     SignAndVerify,
+}
+
+#[derive(Deserialize, Serialize, Clone, PartialEq, Eq, Default)]
+pub enum KeyType {
+    Symmetric,
+    Asymmetric,
+    #[default]
+    Unknown,
 }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq)]
