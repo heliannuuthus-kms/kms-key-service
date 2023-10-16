@@ -1,0 +1,12 @@
+{
+  "db_name": "MySQL",
+  "query": "INSERT INTO t_secret(key_id, primary_key_id, key_type, key_pair) VALUES(?, ?, ? ,?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "31b88b43803a466cfdf637c79ab917f8f90bacbcebe65d1a24c08cf8b2a2186f"
+}

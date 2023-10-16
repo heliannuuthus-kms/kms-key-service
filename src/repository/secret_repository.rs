@@ -1,10 +1,86 @@
+use anyhow::Context;
 use sqlx::MySql;
 
-use crate::common::errors::Result;
+use crate::{
+    common::errors::Result,
+    pojo::po::secret::{Secret, SecretMeta},
+};
+pub async fn insert_symmetric_secret(
+    tx: &mut sqlx::Transaction<'_, MySql>,
+    sec: &Secret,
+) -> Result<()> {
+    sqlx::query_as!(
+        Secret,
+        "INSERT INTO t_secret(key_id, primary_key_id, key_type, key_pair) \
+         VALUES(?, ?, ? ,?)",
+        sec.key_id,
+        sec.primary_key_id,
+        sec.key_type,
+        sec.key_pair
+    )
+    .execute(tx.as_mut())
+    .await
+    .with_context(|| {
+        tracing::error!(
+            "create symmetric secret faield, key_id: {}",
+            sec.key_id
+        );
+        "create secret failed"
+    })?;
+    Ok(())
+}
 
-pub async fn insert_sysmtric_secret(tx: &mut sqlx::Transaction<'_, MySql>) -> Result<()> {
-  
-  let row = sqlx::query("INSERT INTO t_secret(key_id, )").fetch_one(&mut *tx).await?;
+pub async fn insert_asymmetric_secret(
+    tx: &mut sqlx::Transaction<'_, MySql>,
+    sec: &Secret,
+) -> Result<()> {
+    sqlx::query_as!(
+        Secret,
+        "INSERT INTO t_secret(key_id, primary_key_id, key_type, pub_key, \
+         pri_key) VALUES(?, ?, ? ,?, ?)",
+        sec.key_id,
+        sec.primary_key_id,
+        sec.key_type,
+        sec.pub_key,
+        sec.pri_key,
+    )
+    .execute(tx.as_mut())
+    .await
+    .with_context(|| {
+        tracing::error!(
+            "create asynmmtric secret faield, key_id: {}",
+            sec.key_id
+        );
+        "create secret failed"
+    })?;
+    Ok(())
+}
 
-    sqlx::query("...").execute(&mut *tx).await?;
+pub async fn insert_secret_meta(
+    tx: &mut sqlx::Transaction<'_, MySql>,
+    meta: &SecretMeta,
+) -> Result<()> {
+    sqlx::query!(
+        "INSERT INTO t_secret_meta(key_id, sepc, origin, description, state, \
+         `usage`, rotation_interval, creator, material_expire_at, \
+         last_rotation_at, deletion_at) VALUE(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        meta.key_id,
+        meta.spec,
+        meta.origin,
+        meta.description,
+        meta.state,
+        meta.usage,
+        meta.rotation_interval,
+        meta.creator,
+        meta.material_expire_at,
+        meta.last_rotation_at,
+        meta.deletion_at,
+    )
+    .execute(tx.as_mut())
+    .await
+    .with_context(|| {
+        tracing::error!("create secret meta failed, key_id: {}", meta.key_id,);
+        "create secret meta failed"
+    })?;
+    Ok(())
 }

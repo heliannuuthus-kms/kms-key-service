@@ -10,7 +10,7 @@ mod common;
 mod controller;
 mod pojo;
 mod repository;
-
+mod service;
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().expect(".env file not found");

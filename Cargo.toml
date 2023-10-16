@@ -34,3 +34,6 @@ sqlx = { version = "0.7", features = [
   "uuid",
   "json",
 ] }
+hex = "0.4.3"
+openssl = "0.10.57"
+openssl-sys = "0.9.93"

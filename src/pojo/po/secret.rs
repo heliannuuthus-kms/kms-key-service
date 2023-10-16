@@ -1,12 +1,10 @@
-use std::time::Duration;
-
-use chrono::DateTime;
+use chrono::{DateTime, Duration};
 use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::Utc;
 
 use crate::common::enums::{KeyOrigin, KeySpec, KeyState, KeyType, KeyUseage};
 
-#[derive(Serialize, Deserialize, Clone, sqlx::FromRow)]
+#[derive(Serialize, Deserialize, Clone, sqlx::FromRow, Default)]
 pub struct Secret {
     pub key_id: String,
     pub primary_key_id: String,
@@ -16,25 +14,21 @@ pub struct Secret {
     pub pri_key: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, sqlx::FromRow)]
+#[derive(Serialize, Deserialize, Clone, sqlx::FromRow, Default)]
 pub struct SecretMeta {
     pub key_id: String,
-
     #[serde(rename = "key_spec")]
     pub spec: KeySpec,
-
     #[serde(rename = "key_origin")]
     pub origin: KeyOrigin,
-
     pub description: String,
     #[serde(rename = "key_state")]
     pub state: KeyState,
-
     #[serde(rename = "key_usage")]
     pub usage: KeyUseage,
-    rotation_interval: Duration,
-    creator: String,
-    material_expire_at: DateTime<Utc>,
-    last_rotation_at: DateTime<Utc>,
-    deletion_at: DateTime<Utc>,
+    pub rotation_interval: u64,
+    pub creator: String,
+    pub material_expire_at: Option<DateTime<Utc>>,
+    pub last_rotation_at: Option<DateTime<Utc>>,
+    pub deletion_at: Option<DateTime<Utc>>,
 }
