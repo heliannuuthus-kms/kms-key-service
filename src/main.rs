@@ -36,7 +36,9 @@ async fn main() -> std::io::Result<()> {
             .service(Redoc::with_url("/openapi", api_doc.clone()))
             .service(
                 web::scope("/secrets")
-                    .service(secret_controller::create_secret),
+                    .service(secret_controller::create_secret)
+                    .service(secret_controller::import_secret)
+                    .service(secret_controller::set_secret_meta),
             )
     })
     .bind((

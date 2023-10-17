@@ -1,11 +1,8 @@
-
-
-
-
 use crate::{
     common::{
+        algorithm::KeyOrigin,
         datasource::{tx_begin, tx_commit},
-        errors::{Result},
+        errors::Result,
     },
     pojo::po::secret::{Secret, SecretMeta},
     repository::secret_repository,
@@ -17,8 +14,8 @@ pub async fn create_secret(
 ) -> Result<String> {
     let mut tx = tx_begin("create secret").await?;
     // 插入数据
-    secret_repository::insert_secret(&mut tx, &secret).await?;
-    secret_repository::insert_secret_meta(&mut tx, &secret_meta).await?;
+    secret_repository::insert_secret(&mut tx, secret).await?;
+    secret_repository::insert_secret_meta(&mut tx, secret_meta).await?;
     tx_commit(tx, "create secret").await?;
     Ok(secret.key_id.clone())
 }

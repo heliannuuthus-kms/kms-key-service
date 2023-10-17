@@ -37,3 +37,4 @@ sqlx = { version = "0.7", features = [
 hex = "0.4.3"
 openssl = "0.10.57"
 openssl-sys = "0.9.93"
+serde_with = { version = "3.3.0", features = ["json", "chrono_0_4"] }

@@ -1,8 +1,8 @@
-use chrono::{DateTime};
+use chrono::DateTime;
 use serde::{Deserialize, Serialize};
 use sqlx::types::chrono::Utc;
 
-use crate::common::enums::{KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage};
+use crate::common::algorithm::{KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage};
 
 #[derive(Serialize, Deserialize, Clone, sqlx::FromRow, Default)]
 pub struct Secret {
@@ -26,7 +26,7 @@ pub struct SecretMeta {
     pub state: KeyState,
     #[serde(rename = "key_usage")]
     pub usage: KeyUsage,
-    pub rotation_interval: u64,
+    pub rotation_interval: i64,
     pub creator: String,
     pub material_expire_at: Option<DateTime<Utc>>,
     pub last_rotation_at: Option<DateTime<Utc>>,

@@ -10,7 +10,10 @@ use sqlx::{
     ConnectOptions, MySql, Pool,
 };
 
-use super::errors::ServiceError;
+use super::{
+    algorithm::{KeyOrigin, KeyState, KeyType, KeyUsage, KeySpec},
+    errors::ServiceError,
+};
 use crate::common::configs::env_var;
 
 lazy_static! {
@@ -56,6 +59,27 @@ pub async fn tx_commit(
         msg
     })?)
 }
+
+macro_rules! impl_sqlx_enum_type {
+    ($ty:ty) => {
+        impl sqlx::Type<sqlx::MySql> for $ty {
+            fn type_info() -> <sqlx::MySql as sqlx::Database>::TypeInfo {
+                <str as sqlx::Type<sqlx::MySql>>::type_info()
+            }
+
+            fn compatible(
+                ty: &<sqlx::MySql as sqlx::Database>::TypeInfo,
+            ) -> bool {
+                <str as sqlx::Type<sqlx::MySql>>::compatible(ty)
+            }
+        }
+    };
+}
+impl_sqlx_enum_type!(KeyOrigin);
+impl_sqlx_enum_type!(KeyType);
+impl_sqlx_enum_type!(KeyState);
+impl_sqlx_enum_type!(KeyUsage);
+impl_sqlx_enum_type!(KeySpec);
 
 pub fn to_vec<S>(v: &Option<String>, serializer: S) -> Result<S::Ok, S::Error>
 where

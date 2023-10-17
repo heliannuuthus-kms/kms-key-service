@@ -1,17 +1,23 @@
 use actix_web::error::ErrorBadRequest;
 use anyhow::Context;
+use serde_json::json;
 use sqlx::MySql;
 
 use crate::{
-    common::errors::{Result, ServiceError},
+    common::{
+        algorithm::KeyType,
+        errors::{Result, ServiceError},
+    },
     pojo::po::secret::{Secret, SecretMeta},
 };
 pub async fn insert_secret(
     tx: &mut sqlx::Transaction<'_, MySql>,
     sec: &Secret,
 ) -> Result<()> {
+    
+    tracing::info!("insert secret: {}", json!(sec));
     match sec.key_type {
-        crate::common::enums::KeyType::Symmetric => {
+        KeyType::Symmetric => {
             sqlx::query_as!(
                 Secret,
                 "INSERT INTO t_secret(key_id, primary_key_id, key_type, \
@@ -31,7 +37,7 @@ pub async fn insert_secret(
                 "create secret failed"
             })?;
         }
-        crate::common::enums::KeyType::Asymmetric => {
+        KeyType::Asymmetric => {
             sqlx::query_as!(
                 Secret,
                 "INSERT INTO t_secret(key_id, primary_key_id, key_type, \
@@ -52,7 +58,7 @@ pub async fn insert_secret(
                 "create secret failed"
             })?;
         }
-        crate::common::enums::KeyType::Unknown => {
+        KeyType::Unknown => {
             return Err(ServiceError::Reponse(ErrorBadRequest(
                 "unknown key type",
             )))
