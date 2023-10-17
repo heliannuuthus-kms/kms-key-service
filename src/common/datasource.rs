@@ -36,7 +36,9 @@ pub async fn acquire_conn() -> Result<PoolConnection<MySql>, ServiceError> {
     })?)
 }
 
-pub async fn tx_begin(action: &str) -> Result<sqlx::Transaction<'_, MySql>, ServiceError> {
+pub async fn tx_begin(
+    action: &str,
+) -> Result<sqlx::Transaction<'_, MySql>, ServiceError> {
     Ok(CONN.begin().await.with_context(|| {
         let msg = format!("begin transaction failed, event: {}", action);
         tracing::error!(msg);
@@ -44,7 +46,10 @@ pub async fn tx_begin(action: &str) -> Result<sqlx::Transaction<'_, MySql>, Serv
     })?)
 }
 
-pub async fn tx_commit(tx: sqlx::Transaction<'_, MySql>, action: &str) -> Result<(), ServiceError> {
+pub async fn tx_commit(
+    tx: sqlx::Transaction<'_, MySql>,
+    action: &str,
+) -> Result<(), ServiceError> {
     Ok(tx.commit().await.with_context(|| {
         let msg = format!("commit transaction failed, event: {}", action);
         tracing::error!(msg);

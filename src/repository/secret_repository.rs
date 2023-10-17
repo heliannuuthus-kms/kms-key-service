@@ -1,58 +1,64 @@
+use actix_web::error::ErrorBadRequest;
 use anyhow::Context;
 use sqlx::MySql;
 
 use crate::{
-    common::errors::Result,
+    common::errors::{Result, ServiceError},
     pojo::po::secret::{Secret, SecretMeta},
 };
-pub async fn insert_symmetric_secret(
+pub async fn insert_secret(
     tx: &mut sqlx::Transaction<'_, MySql>,
     sec: &Secret,
 ) -> Result<()> {
-    sqlx::query_as!(
-        Secret,
-        "INSERT INTO t_secret(key_id, primary_key_id, key_type, key_pair) \
-         VALUES(?, ?, ? ,?)",
-        sec.key_id,
-        sec.primary_key_id,
-        sec.key_type,
-        sec.key_pair
-    )
-    .execute(tx.as_mut())
-    .await
-    .with_context(|| {
-        tracing::error!(
-            "create symmetric secret faield, key_id: {}",
-            sec.key_id
-        );
-        "create secret failed"
-    })?;
-    Ok(())
-}
+    match sec.key_type {
+        crate::common::enums::KeyType::Symmetric => {
+            sqlx::query_as!(
+                Secret,
+                "INSERT INTO t_secret(key_id, primary_key_id, key_type, \
+                 key_pair) VALUES(?, ?, ? ,?)",
+                sec.key_id,
+                sec.primary_key_id,
+                sec.key_type,
+                sec.key_pair
+            )
+            .execute(tx.as_mut())
+            .await
+            .with_context(|| {
+                tracing::error!(
+                    "create symmetric secret faield, key_id: {}",
+                    sec.key_id
+                );
+                "create secret failed"
+            })?;
+        }
+        crate::common::enums::KeyType::Asymmetric => {
+            sqlx::query_as!(
+                Secret,
+                "INSERT INTO t_secret(key_id, primary_key_id, key_type, \
+                 pub_key, pri_key) VALUES(?, ?, ? ,?, ?)",
+                sec.key_id,
+                sec.primary_key_id,
+                sec.key_type,
+                sec.pub_key,
+                sec.pri_key,
+            )
+            .execute(tx.as_mut())
+            .await
+            .with_context(|| {
+                tracing::error!(
+                    "create asynmmtric secret faield, key_id: {}",
+                    sec.key_id
+                );
+                "create secret failed"
+            })?;
+        }
+        crate::common::enums::KeyType::Unknown => {
+            return Err(ServiceError::Reponse(ErrorBadRequest(
+                "unknown key type",
+            )))
+        }
+    }
 
-pub async fn insert_asymmetric_secret(
-    tx: &mut sqlx::Transaction<'_, MySql>,
-    sec: &Secret,
-) -> Result<()> {
-    sqlx::query_as!(
-        Secret,
-        "INSERT INTO t_secret(key_id, primary_key_id, key_type, pub_key, \
-         pri_key) VALUES(?, ?, ? ,?, ?)",
-        sec.key_id,
-        sec.primary_key_id,
-        sec.key_type,
-        sec.pub_key,
-        sec.pri_key,
-    )
-    .execute(tx.as_mut())
-    .await
-    .with_context(|| {
-        tracing::error!(
-            "create asynmmtric secret faield, key_id: {}",
-            sec.key_id
-        );
-        "create secret failed"
-    })?;
     Ok(())
 }
 

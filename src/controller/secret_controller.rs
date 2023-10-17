@@ -1,24 +1,23 @@
-use actix_web::{patch, post, put, web::Json, Responder};
+use actix_web::{patch, post, web::Json, HttpResponse, Responder};
 
 use crate::{
-    common::{
-        datasource::{tx_begin, CONN, tx_commit},
-        errors::Result,
-    },
+    common::errors::Result,
     pojo::{
         form::secret::SecretCreateForm,
         po::secret::{Secret, SecretMeta},
     },
-    repository::secret_repository, service::secret_service,
+    service::secret_service,
 };
 
 #[post("")]
 pub async fn create_secret(
     Json(form): Json<SecretCreateForm>,
 ) -> Result<impl Responder> {
-    let (secret, secret_meta): (Secret, SecretMeta) = form.try_into()?;
-    secret_service::create_secret(&mut secret, &mut secret_meta).await?;
-    
+    let (mut secret, mut secret_meta): (Secret, SecretMeta) =
+        form.try_into()?;
+    let key_id: String =
+        secret_service::create_secret(&mut secret, &mut secret_meta).await?;
+    Ok(HttpResponse::Ok().json(format!(r#"{{"key_id": {}}}"#, key_id)))
 }
 
 #[post("/import")]
