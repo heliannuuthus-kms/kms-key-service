@@ -1,50 +1,57 @@
-use actix_web::{web, App, HttpServer};
+use std::{net::SocketAddr, time::Duration};
+
+use axum::{
+    routing::{get, patch, post},
+    Router,
+};
 use common::configs::{env_var, env_var_default};
-use controller::{secret_controller, ApiDoc};
+use controller::{
+    secret_controller::{self, create_secret, import_secret, set_secret_meta},
+    ApiDoc,
+};
 use dotenvy::dotenv;
+use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use tracing_actix_web::TracingLogger;
 use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
 use utoipa::OpenApi;
 use utoipa_redoc::{Redoc, Servable};
 mod common;
 mod controller;
+mod entity;
 mod pojo;
 mod repository;
 mod service;
-#[actix_web::main]
+
+#[derive(Clone)]
+struct States {
+    db: DatabaseConnection,
+}
+
+#[tokio::main]
 async fn main() -> std::io::Result<()> {
     dotenv().expect(".env file not found");
-    let file_appender = tracing_appender::rolling::hourly(
-        env_var_default::<String>("LOG", "./log".to_string()),
-        format!("{}.log", env!("CARGO_PKG_NAME")),
-    );
-    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-    let _ = tracing::subscriber::set_global_default(
-        tracing_subscriber::fmt::Subscriber::builder()
-            .with_max_level(tracing::Level::DEBUG)
-            .finish()
-            .with(
-                tracing_subscriber::fmt::Layer::default()
-                    .with_writer(non_blocking),
-            ),
-    );
-    let api_doc = ApiDoc::openapi();
 
-    HttpServer::new(move || {
-        App::new()
-            .wrap(TracingLogger::default())
-            .service(Redoc::with_url("/openapi", api_doc.clone()))
-            .service(
-                web::scope("/secrets")
-                    .service(secret_controller::create_secret)
-                    .service(secret_controller::import_secret)
-                    .service(secret_controller::set_secret_meta),
-            )
-    })
-    .bind((
+    common::logger::init();
+    let db = common::datasource::init().await.unwrap();
+    let state = States { db };
+
+    let app = Router::new()
+        .route_service(
+            "/secrets",
+            Router::new()
+                .route("", post(create_secret))
+                .route("/import", post(import_secret))
+                .route("/meta", patch(set_secret_meta)),
+        )
+        .merge(Redoc::with_url("/openapi", ApiDoc::openapi()))
+        .with_state(state);
+
+    let addr = format!(
+        "{}:{}",
         env_var::<String>("SERVER_HOST"),
-        env_var::<u16>("SERVER_PORT"),
-    ))?
-    .run()
-    .await
+        env_var::<u16>("SERVER_PORT")
+    );
+    axum::Server::bind(&addr.parse::<SocketAddr>().unwrap())
+        .serve(app.into_make_service());
+    Ok(())
 }

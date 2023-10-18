@@ -4,3 +4,4 @@ pub mod datasource;
 pub mod enums;
 pub mod errors;
 pub mod utils;
+pub mod logger;

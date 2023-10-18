@@ -5,6 +5,7 @@ use ring::{
     aead::{AES_128_GCM, AES_256_GCM},
     rand::{SecureRandom, SystemRandom},
 };
+use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
@@ -18,44 +19,48 @@ use super::{errors::Result, utils::encode64};
     Eq,
     Default,
     Copy,
-    sqlx::Encode,
-    sqlx::Decode,
     Hash,
     Debug,
     ToSchema,
+    EnumIter,
+    DeriveActiveEnum,
 )]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "usage")]
 pub enum KeyUsage {
     #[default]
+    #[sea_orm(string_value = "ENCRYPT/DECRYPT")]
     #[serde(rename = "encrypt/decrypt")]
-    #[sqlx(rename = "ENCRYPT/DECRYPT")]
     EncryptAndDecrypt,
+    #[sea_orm(string_value = "SIGN/VERIFY")]
     #[serde(rename = "sign/verify")]
-    #[sqlx(rename = "SIGN/VERIFY")]
     SignAndVerify,
 }
 
 #[derive(
-    Deserialize,
+    DeriveActiveEnum,
+    EnumIter,
     Serialize,
+    Debug,
+    Deserialize,
     Clone,
     PartialEq,
     Eq,
     Default,
-    sqlx::Decode,
-    sqlx::Encode,
     Copy,
 )]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "key_type")]
 pub enum KeyType {
-    #[sqlx(rename = "SYMMETRIC")]
+    #[sea_orm(string_value = "SYMMETRIC")]
     Symmetric,
-    #[sqlx(rename = "ASYMMETRIC")]
+    #[sea_orm(string_value = "ASYMMETRIC")]
     Asymmetric,
     #[default]
-    #[sqlx(rename = "UNKNOWN")]
+    #[sea_orm(string_value = "UNKNWON")]
     Unknown,
 }
 
 #[derive(
+    Debug,
     Deserialize,
     Serialize,
     Clone,
@@ -63,14 +68,17 @@ pub enum KeyType {
     PartialEq,
     Eq,
     Default,
-    sqlx::Encode,
-    sqlx::Decode,
     ToSchema,
+    EnumIter,
+    DeriveActiveEnum,
 )]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "usage")]
 #[serde(rename = "snake_case")]
 pub enum KeyOrigin {
     #[default]
+    #[sea_orm(string_value = "KMS")]
     Kms,
+    #[sea_orm(string_value = "EXTERNAL")]
     External,
 }
 
@@ -79,57 +87,63 @@ pub enum KeyOrigin {
     Serialize,
     Clone,
     PartialEq,
+    DeriveActiveEnum,
+    EnumIter,
     Eq,
     Default,
     Copy,
-    sqlx::Encode,
-    sqlx::Decode,
     ToSchema,
+    Debug,
 )]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "sepc")]
 pub enum KeySpec {
     #[default]
+    #[sea_orm(string_value = "AES_128")]
+    #[serde(rename = "AES_128")]
     Aes128,
+    #[sea_orm(string_value = "AES_256")]
+    #[serde(rename = "AES_256")]
     Aes256,
+    #[sea_orm(string_value = "RSA_2048")]
+    #[serde(rename = "RSA_2048")]
     Rsa2048,
+    #[sea_orm(string_value = "RSA_3072")]
+    #[serde(rename = "RSA_3072")]
     Rsa3072,
+    #[sea_orm(string_value = "EC_P256")]
+    #[serde(rename = "EC_P256")]
     EcP256,
+    #[sea_orm(string_value = "EC_P256k")]
+    #[serde(rename = "EC_P256K")]
     EcP256K,
-}
-
-impl From<KeySpec> for KeyType {
-    fn from(value: KeySpec) -> Self {
-        match value {
-            KeySpec::Aes128 => KeyType::Symmetric,
-            KeySpec::Aes256 => KeyType::Symmetric,
-            KeySpec::Rsa2048 => KeyType::Asymmetric,
-            KeySpec::Rsa3072 => KeyType::Asymmetric,
-            KeySpec::EcP256 => KeyType::Asymmetric,
-            KeySpec::EcP256K => KeyType::Asymmetric,
-        }
-    }
 }
 
 // 主密钥的状态
 #[derive(
     Deserialize,
+    EnumIter,
+    DeriveActiveEnum,
     Serialize,
     Clone,
     PartialEq,
     Eq,
     Default,
-    sqlx::Encode,
-    sqlx::Decode,
     Copy,
+    Debug,
 )]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "state")]
 pub enum KeyState {
     #[default]
+    #[sea_orm(string_value = "ENABLE")]
     Enable, // 密钥默认处于 enable 状态
-    Disable,         /* 处于 Disable
-                      * 状态的密钥不可删除，不可使用（加解密，
-                      * 签名验签等），可查询，可创建别名 */
+    #[sea_orm(string_value = "DISABLE")]
+    Disable, /* 处于 Disable
+              * 状态的密钥不可删除，不可使用（加解密，
+              * 签名验签等），可查询，可创建别名 */
+    #[sea_orm(string_value = "PENDING_DELETION")]
     PendingDeletion, // 待删除的密钥，
-    Pendingimport,   // 待导入的密钥
+    #[sea_orm(string_value = "IMPORT_DELETION")]
+    Pendingimport, // 待导入的密钥
 }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq, Default)]
@@ -144,38 +158,28 @@ pub enum KeyStateStatus {
 }
 
 #[derive(
-    Deserialize,
-    Serialize,
-    Clone,
-    PartialEq,
-    Eq,
-    Default,
-    Copy,
-    ToSchema,
+    Deserialize, Serialize, Clone, PartialEq, Eq, Default, Copy, ToSchema,
 )]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WrappingKeyAlgorithm {
     #[default]
+    #[serde(rename = "RSAES_PKCS1_V1_5")]
     RsaesPkcs1V1_5,
+    #[serde(rename = "RSAES_OAEP_SHA_1")]
     RsaesOaepSha1,
+    #[serde(rename = "RSAES_OAEP_SHA_256")]
     RsaesOaepSha256,
+    #[serde(rename = "SM2PKE")]
     SM2PKE,
 }
 
 #[derive(
-    Deserialize,
-    Serialize,
-    Clone,
-    PartialEq,
-    Eq,
-    Default,
-    Copy,
-    ToSchema,
+    Deserialize, Serialize, Clone, PartialEq, Eq, Default, Copy, ToSchema,
 )]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WrappingKeySpec {
     #[default]
+    #[serde(rename = "RSA_2048")]
     Rsa2048,
+    #[serde(rename = "EC_SM2")]
     EcSm2,
 }
 

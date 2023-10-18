@@ -2,86 +2,32 @@ use std::string::String;
 
 use anyhow::Context;
 use chrono::Duration;
-use lazy_static::lazy_static;
+use sea_orm::{ConnectOptions, Database, DatabaseBackend, DatabaseConnection};
 use serde::{ser::SerializeSeq, Deserialize};
-use sqlx::{
-    mysql::{MySqlConnectOptions, MySqlPoolOptions},
-    pool::PoolConnection,
-    ConnectOptions, MySql, Pool,
-};
 
 use super::{
-    algorithm::{KeyOrigin, KeyState, KeyType, KeyUsage, KeySpec},
-    errors::ServiceError,
+    algorithm::{KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage},
+    errors::{Result, ServiceError},
 };
 use crate::common::configs::env_var;
 
-lazy_static! {
-    pub static ref CONN: Pool<MySql> = {
-        MySqlPoolOptions::new()
-            .max_connections(5)
-            .acquire_timeout(Duration::seconds(2).to_std().unwrap())
-            .idle_timeout(Duration::seconds(60).to_std().unwrap())
-            .connect_lazy_with(
-                env_var::<String>("DATABASE_URL")
-                    .parse::<MySqlConnectOptions>()
-                    .unwrap()
-                    .log_statements(tracing::log::LevelFilter::Debug),
-            )
-    };
-}
-
-pub async fn acquire_conn() -> Result<PoolConnection<MySql>, ServiceError> {
-    Ok(CONN.acquire().await.with_context(|| {
-        let msg = "acquire mysql connection failed";
-        tracing::error!(msg);
-        msg
+pub async fn init() -> Result<DatabaseConnection> {
+    let mut opt = ConnectOptions::new(env_var::<String>("DATABASE_URL"));
+    opt.max_connections(5)
+        .acquire_timeout(Duration::seconds(2).to_std().unwrap())
+        .idle_timeout(Duration::seconds(60).to_std().unwrap())
+        .sqlx_logging(true)
+        .sqlx_logging_level(tracing::log::LevelFilter::Debug);
+    Ok(Database::connect(opt).await.with_context(|| {
+        tracing::error!("init datasource failed");
+        "init datasource failed"
     })?)
 }
 
-pub async fn tx_begin(
-    action: &str,
-) -> Result<sqlx::Transaction<'_, MySql>, ServiceError> {
-    Ok(CONN.begin().await.with_context(|| {
-        let msg = format!("begin transaction failed, event: {}", action);
-        tracing::error!(msg);
-        msg
-    })?)
-}
-
-pub async fn tx_commit(
-    tx: sqlx::Transaction<'_, MySql>,
-    action: &str,
-) -> Result<(), ServiceError> {
-    Ok(tx.commit().await.with_context(|| {
-        let msg = format!("commit transaction failed, event: {}", action);
-        tracing::error!(msg);
-        msg
-    })?)
-}
-
-macro_rules! impl_sqlx_enum_type {
-    ($ty:ty) => {
-        impl sqlx::Type<sqlx::MySql> for $ty {
-            fn type_info() -> <sqlx::MySql as sqlx::Database>::TypeInfo {
-                <str as sqlx::Type<sqlx::MySql>>::type_info()
-            }
-
-            fn compatible(
-                ty: &<sqlx::MySql as sqlx::Database>::TypeInfo,
-            ) -> bool {
-                <str as sqlx::Type<sqlx::MySql>>::compatible(ty)
-            }
-        }
-    };
-}
-impl_sqlx_enum_type!(KeyOrigin);
-impl_sqlx_enum_type!(KeyType);
-impl_sqlx_enum_type!(KeyState);
-impl_sqlx_enum_type!(KeyUsage);
-impl_sqlx_enum_type!(KeySpec);
-
-pub fn to_vec<S>(v: &Option<String>, serializer: S) -> Result<S::Ok, S::Error>
+pub fn to_vec<S>(
+    v: &Option<String>,
+    serializer: S,
+) -> std::result::Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
@@ -97,7 +43,9 @@ where
     seq_serializer.end()
 }
 
-pub fn from_vec<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+pub fn from_vec<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {

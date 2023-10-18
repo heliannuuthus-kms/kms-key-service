@@ -1,21 +1,35 @@
+use std::{ops::DerefMut, sync::Arc};
+
+use sea_orm::*;
+use tokio::{sync::Mutex, try_join};
+
 use crate::{
     common::{
+        self,
         algorithm::KeyOrigin,
-        datasource::{tx_begin, tx_commit},
-        errors::Result,
+        datasource::{self},
+        errors::{Result, ServiceError},
     },
-    pojo::po::secret::{Secret, SecretMeta},
+    entity::{
+        prelude::{Secret, SecretMeta},
+        t_secret as TSecret, t_secret_meta as TSecretMeta,
+    },
+    pojo::form::secret,
     repository::secret_repository,
 };
 
 pub async fn create_secret(
-    secret: &mut Secret,
-    secret_meta: &mut SecretMeta,
+    db: &DbConn,
+    secret: &TSecret::Model,
+    secret_meta: &TSecretMeta::Model,
 ) -> Result<String> {
-    let mut tx = tx_begin("create secret").await?;
-    // 插入数据
-    secret_repository::insert_secret(&mut tx, secret).await?;
-    secret_repository::insert_secret_meta(&mut tx, secret_meta).await?;
-    tx_commit(tx, "create secret").await?;
-    Ok(secret.key_id.clone())
+    if KeyOrigin::Kms.eq(&secret_meta.origin) {
+        secret_repository::insert_secret(db, secret).await?;
+    };
+    secret_repository::insert_secret_meta(db, secret_meta).await?;
+    Ok(secret_meta.key_id.to_owned())
+}
+
+pub async fn import_secret_meta(db: &DbConn, key_id: &str) -> Result<()> {
+    
 }

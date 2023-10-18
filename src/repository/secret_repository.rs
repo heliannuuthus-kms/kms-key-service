@@ -1,98 +1,46 @@
-use actix_web::error::ErrorBadRequest;
-use anyhow::Context;
-use serde_json::json;
-use sqlx::MySql;
+use sea_orm::*;
 
 use crate::{
-    common::{
-        algorithm::KeyType,
-        errors::{Result, ServiceError},
+    common::errors::Result,
+    entity::{
+        t_secret::{self as TSecret},
+        t_secret_meta::{self as TSecretMeta},
     },
-    pojo::po::secret::{Secret, SecretMeta},
 };
-pub async fn insert_secret(
-    tx: &mut sqlx::Transaction<'_, MySql>,
-    sec: &Secret,
-) -> Result<()> {
-    
-    tracing::info!("insert secret: {}", json!(sec));
-    match sec.key_type {
-        KeyType::Symmetric => {
-            sqlx::query_as!(
-                Secret,
-                "INSERT INTO t_secret(key_id, primary_key_id, key_type, \
-                 key_pair) VALUES(?, ?, ? ,?)",
-                sec.key_id,
-                sec.primary_key_id,
-                sec.key_type,
-                sec.key_pair
-            )
-            .execute(tx.as_mut())
-            .await
-            .with_context(|| {
-                tracing::error!(
-                    "create symmetric secret faield, key_id: {}",
-                    sec.key_id
-                );
-                "create secret failed"
-            })?;
-        }
-        KeyType::Asymmetric => {
-            sqlx::query_as!(
-                Secret,
-                "INSERT INTO t_secret(key_id, primary_key_id, key_type, \
-                 pub_key, pri_key) VALUES(?, ?, ? ,?, ?)",
-                sec.key_id,
-                sec.primary_key_id,
-                sec.key_type,
-                sec.pub_key,
-                sec.pri_key,
-            )
-            .execute(tx.as_mut())
-            .await
-            .with_context(|| {
-                tracing::error!(
-                    "create asynmmtric secret faield, key_id: {}",
-                    sec.key_id
-                );
-                "create secret failed"
-            })?;
-        }
-        KeyType::Unknown => {
-            return Err(ServiceError::Reponse(ErrorBadRequest(
-                "unknown key type",
-            )))
-        }
-    }
 
+pub async fn insert_secret(db: &DbConn, model: &TSecret::Model) -> Result<()> {
+    TSecret::Entity::insert(model.clone().into_active_model())
+        .exec(db)
+        .await?;
     Ok(())
 }
 
 pub async fn insert_secret_meta(
-    tx: &mut sqlx::Transaction<'_, MySql>,
-    meta: &SecretMeta,
+    db: &DbConn,
+    model: &TSecretMeta::Model,
 ) -> Result<()> {
-    sqlx::query!(
-        "INSERT INTO t_secret_meta(key_id, sepc, origin, description, state, \
-         `usage`, rotation_interval, creator, material_expire_at, \
-         last_rotation_at, deletion_at) VALUE(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        meta.key_id,
-        meta.spec,
-        meta.origin,
-        meta.description,
-        meta.state,
-        meta.usage,
-        meta.rotation_interval,
-        meta.creator,
-        meta.material_expire_at,
-        meta.last_rotation_at,
-        meta.deletion_at,
-    )
-    .execute(tx.as_mut())
-    .await
-    .with_context(|| {
-        tracing::error!("create secret meta failed, key_id: {}", meta.key_id,);
-        "create secret meta failed"
-    })?;
+    TSecretMeta::Entity::insert(model.clone().into_active_model())
+        .exec(db)
+        .await?;
     Ok(())
+}
+
+pub async fn select_secret(
+    db: &DbConn,
+    key_id: &str,
+) -> Result<Option<TSecret::Model>> {
+    Ok(TSecret::Entity::find()
+        .filter(TSecret::Column::KeyId.eq(key_id))
+        .one(db)
+        .await?)
+}
+
+pub async fn select_secret_meta(
+    db: &DbConn,
+    key_id: &str,
+) -> Result<Option<TSecretMeta::Model>> {
+    Ok(TSecretMeta::Entity::find()
+        .filter(TSecretMeta::Column::KeyId.eq(key_id))
+        .one(db)
+        .await?)
 }

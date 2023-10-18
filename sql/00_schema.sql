@@ -16,7 +16,14 @@ CREATE TABLE IF NOT EXISTS t_secret (
 CREATE TABLE IF NOT EXISTS t_secret_meta (
   id BIGINT NOT NULL AUTO_INCREMENT,
   key_id VARCHAR(32) NOT NULL COMMENT "密钥标识",
-  sepc VARCHAR(64) NOT NULL COMMENT "密钥规格",
+  spec ENUM(
+    "AES_128",
+    "AES_256",
+    "RSA_2048",
+    "RSA_3072",
+    "EC_P256",
+    "EC_P256k"
+  ) NOT NULL COMMENT "密钥规格",
   origin ENUM("KMS", "EXTERNAL") NOT NULL COMMENT "密钥来源，0: kms 创建，1: 密钥材料导入",
   description TEXT COMMENT "密钥描述",
   state ENUM(
