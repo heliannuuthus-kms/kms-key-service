@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use axum::{
-    routing::{patch, get, post},
+    routing::{get, patch, post},
     Router,
 };
 use common::configs::env_var;
@@ -27,15 +27,14 @@ struct States {
 }
 
 #[tokio::main]
-async fn main() -> std::io::Result<()> {
+async fn main() {
     dotenv().expect(".env file not found");
-
     common::logger::init();
     let db = common::datasource::init().await.unwrap();
     let cache = common::cache::init().await.unwrap();
     let state = States { db, cache };
     let secret_router = Router::new()
-        .route("", post(create_secret))
+        .route("/", post(create_secret))
         .route("/import", post(import_secret_params))
         .route("/import/params", get(import_secret_params))
         .route("/meta", patch(set_secret_meta));
@@ -50,6 +49,7 @@ async fn main() -> std::io::Result<()> {
         env_var::<u16>("SERVER_PORT")
     );
     axum::Server::bind(&addr.parse::<SocketAddr>().unwrap())
-        .serve(app.into_make_service());
-    Ok(())
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }
