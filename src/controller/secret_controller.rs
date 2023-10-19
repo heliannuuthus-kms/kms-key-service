@@ -97,9 +97,7 @@ pub async fn create_secret(
     ),
     request_body = SecretImportForm
 )]
-pub async fn import_secret(State(_state): State<States>) {
-    
-}
+pub async fn import_secret(State(_state): State<States>) {}
 
 #[utoipa::path(
     post,
