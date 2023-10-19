@@ -1,18 +1,16 @@
-use std::{net::SocketAddr, time::Duration};
+use std::net::SocketAddr;
 
 use axum::{
-    routing::{get, patch, post},
+    routing::{patch, get, post},
     Router,
 };
-use common::configs::{env_var, env_var_default};
+use common::configs::env_var;
 use controller::{
-    secret_controller::{self, create_secret, import_secret, set_secret_meta},
+    secret_controller::{create_secret, import_secret_params, set_secret_meta},
     ApiDoc,
 };
 use dotenvy::dotenv;
-use sea_orm::{ConnectOptions, Database, DatabaseConnection};
-use tracing_actix_web::TracingLogger;
-use tracing_subscriber::prelude::__tracing_subscriber_SubscriberExt;
+use sea_orm::DatabaseConnection;
 use utoipa::OpenApi;
 use utoipa_redoc::{Redoc, Servable};
 mod common;
@@ -25,6 +23,7 @@ mod service;
 #[derive(Clone)]
 struct States {
     db: DatabaseConnection,
+    cache: redis::Client,
 }
 
 #[tokio::main]
@@ -33,16 +32,15 @@ async fn main() -> std::io::Result<()> {
 
     common::logger::init();
     let db = common::datasource::init().await.unwrap();
-    let state = States { db };
-
+    let cache = common::cache::init().await.unwrap();
+    let state = States { db, cache };
+    let secret_router = Router::new()
+        .route("", post(create_secret))
+        .route("/import", post(import_secret_params))
+        .route("/import/params", get(import_secret_params))
+        .route("/meta", patch(set_secret_meta));
     let app = Router::new()
-        .route_service(
-            "/secrets",
-            Router::new()
-                .route("", post(create_secret))
-                .route("/import", post(import_secret))
-                .route("/meta", patch(set_secret_meta)),
-        )
+        .nest("/secrets", secret_router)
         .merge(Redoc::with_url("/openapi", ApiDoc::openapi()))
         .with_state(state);
 

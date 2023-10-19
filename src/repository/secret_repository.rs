@@ -8,15 +8,18 @@ use crate::{
     },
 };
 
-pub async fn insert_secret(db: &DbConn, model: &TSecret::Model) -> Result<()> {
+pub async fn insert_secret<C: ConnectionTrait>(
+    db: &C,
+    model: &TSecret::Model,
+) -> Result<()> {
     TSecret::Entity::insert(model.clone().into_active_model())
         .exec(db)
         .await?;
     Ok(())
 }
 
-pub async fn insert_secret_meta(
-    db: &DbConn,
+pub async fn insert_secret_meta<C: ConnectionTrait>(
+    db: &C,
     model: &TSecretMeta::Model,
 ) -> Result<()> {
     TSecretMeta::Entity::insert(model.clone().into_active_model())
@@ -25,8 +28,8 @@ pub async fn insert_secret_meta(
     Ok(())
 }
 
-pub async fn select_secret(
-    db: &DbConn,
+pub async fn select_secret<C: ConnectionTrait>(
+    db: &C,
     key_id: &str,
 ) -> Result<Option<TSecret::Model>> {
     Ok(TSecret::Entity::find()
@@ -35,8 +38,8 @@ pub async fn select_secret(
         .await?)
 }
 
-pub async fn select_secret_meta(
-    db: &DbConn,
+pub async fn select_secret_meta<C: ConnectionTrait>(
+    db: &C,
     key_id: &str,
 ) -> Result<Option<TSecretMeta::Model>> {
     Ok(TSecretMeta::Entity::find()

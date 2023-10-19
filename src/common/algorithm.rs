@@ -234,6 +234,13 @@ lazy_static! {
         generator: gen_ecp256k,
         key_usage: vec![KeyUsage::SignAndVerify],
     };
+    pub static ref EC_SM2: KeyAlgorithm = KeyAlgorithm {
+        key_type: KeyType::Asymmetric,
+        key_size: 256,
+        key_spec: KeySpec::EcP256K,
+        generator: gen_ec_sm2,
+        key_usage: vec![KeyUsage::SignAndVerify],
+    };
 }
 
 fn gen_aes_128() -> Result<(String, String)> {
@@ -275,46 +282,35 @@ fn gen_rsa(size: usize) -> Result<(String, String)> {
 }
 
 fn gen_ecp256() -> Result<(String, String)> {
-    let ecg = openssl::ec::EcGroup::from_curve_name(Nid::X9_62_PRIME256V1)
-        .with_context(|| {
-            tracing::error!("create ec group failed");
-            "create ec group failed"
-        })?;
-
-    let ec_key = openssl::ec::EcKey::generate(&ecg).with_context(|| {
-        tracing::error!("generate ec key failed");
-        "generate ecp256 key failed"
-    })?;
-    Ok((
-        encode64(&ec_key.private_key_to_der().with_context(|| {
-            tracing::error!("export ecp256 private key failed");
-            "initial ecp256 private key failed"
-        })?),
-        encode64(&ec_key.public_key_to_der().with_context(|| {
-            tracing::error!("export ecp256 public key failed");
-            "initial ecp256 public key failed"
-        })?),
-    ))
+    gen_ec(Nid::X9_62_PRIME256V1, "ecp256")
 }
 
 fn gen_ecp256k() -> Result<(String, String)> {
-    let ecg = openssl::ec::EcGroup::from_curve_name(Nid::SECP256K1)
-        .with_context(|| {
-            tracing::error!("create ecp256k group failed");
-            "create ecp256k group failed"
+    gen_ec(Nid::SECP256K1, "ecp256k")
+}
+
+fn gen_ec_sm2() -> Result<(String, String)> {
+    gen_ec(Nid::SM2, "sm2")
+}
+fn gen_ec(nid: Nid, algorithm: &str) -> Result<(String, String)> {
+    let ecg =
+        openssl::ec::EcGroup::from_curve_name(nid).with_context(|| {
+            let msg = format!("create {} group failed", algorithm);
+            tracing::error!(msg);
+            msg
         })?;
     let ec_key = openssl::ec::EcKey::generate(&ecg).with_context(|| {
-        tracing::error!("generate ecp256k key failed");
-        "generate ecp256k key failed"
+        let msg = format!("generate {} key failed", algorithm);
+        msg
     })?;
     Ok((
         encode64(&ec_key.private_key_to_der().with_context(|| {
-            tracing::error!("export ecp256k private key failed");
-            "initial ecp256k private key failed"
+            let msg = format!("initial {} private key failed", algorithm);
+            msg
         })?),
         encode64(&ec_key.public_key_to_der().with_context(|| {
-            tracing::error!("export ecp256k public key failed");
-            "initial ecp256k public key failed"
+            let msg = format!("initial {} public key failed", algorithm);
+            msg
         })?),
     ))
 }

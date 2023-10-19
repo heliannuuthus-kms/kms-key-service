@@ -3,14 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use utoipa::ToSchema;
 
-use crate::common::{
-    algorithm::{
-        KeyAlgorithm, KeyOrigin, KeySpec, KeyType, KeyUsage,
-        WrappingKeyAlgorithm, WrappingKeySpec, AES_128, AES_256, EC_P256,
-        EC_P256K, RSA_2048, RSA_3072,
-    },
-    errors::ServiceError,
-    utils::gen_id,
+use crate::common::algorithm::{
+    KeyOrigin, KeySpec, KeyUsage, WrappingKeyAlgorithm, WrappingKeySpec,
 };
 #[serde_as]
 #[derive(Serialize, Deserialize, ToSchema, Clone)]

@@ -2,13 +2,10 @@ use std::string::String;
 
 use anyhow::Context;
 use chrono::Duration;
-use sea_orm::{ConnectOptions, Database, DatabaseBackend, DatabaseConnection};
+use sea_orm::{ConnectOptions, Database, DatabaseConnection};
 use serde::{ser::SerializeSeq, Deserialize};
 
-use super::{
-    algorithm::{KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage},
-    errors::{Result, ServiceError},
-};
+use super::errors::Result;
 use crate::common::configs::env_var;
 
 pub async fn init() -> Result<DatabaseConnection> {
