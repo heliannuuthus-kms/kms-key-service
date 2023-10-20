@@ -1,7 +1,7 @@
 use sea_orm::*;
 
 use crate::{
-    common::{algorithm::KeyOrigin, errors::Result},
+    common::{errors::Result, kits::algorithm::KeyOrigin},
     entity::{t_secret as TSecret, t_secret_meta as TSecretMeta},
     repository::secret_repository,
 };

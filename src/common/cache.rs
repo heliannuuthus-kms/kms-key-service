@@ -1,6 +1,6 @@
 use anyhow::Context;
 use chrono::Duration;
-use redis::{aio::Connection, Client, ToRedisArgs};
+use redis::{aio::Connection, Client, FromRedisValue, ToRedisArgs};
 
 use super::{configs::env_var, errors::Result};
 
@@ -82,6 +82,18 @@ where
         .await
         .context(format!("redis SETEX failed {}", key))?;
     Ok(())
+}
+
+pub async fn redis_hgetall<T: FromRedisValue>(
+    client: &Client,
+    key: &str,
+) -> Result<T> {
+    let mut conn = borrow(client).await?;
+    Ok(redis::cmd("HGETALL")
+        .arg(key)
+        .query_async(&mut conn)
+        .await
+        .context(format!("redis HSET failed {}", key))?)
 }
 
 pub async fn redis_hsetex<K, V>(
