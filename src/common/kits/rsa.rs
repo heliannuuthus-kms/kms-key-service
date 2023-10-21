@@ -9,38 +9,26 @@ use crate::common::{
 pub fn sign(
     pri_key: &str,
     from: &[u8],
-    padding: rsa::Padding,
     message_digest: hash::MessageDigest,
 ) -> Result<Vec<u8>> {
     let pkey =
         openssl::pkey::PKey::private_key_from_der(&utils::decode64(pri_key)?)
-            .with_context(|| {
-            ServiceError::Internal(anyhow!("key transform faield"))
-        })?;
-
+            .map_err(|e| ServiceError::Internal(anyhow!(e)))?;
     let mut signer = openssl::sign::Signer::new(message_digest, &pkey)
-        .context(ServiceError::Internal(anyhow!(
-            "pkey tansform singer failed"
-        )))?;
-    signer
-        .set_rsa_padding(padding)
-        .context(ServiceError::Internal(anyhow!(
-            "rsa signer set padding failed"
-        )))?;
+        .map_err(|e| ServiceError::Internal(anyhow!(e)))?;
     let _buf: Vec<u8> = vec![0; pkey.size() as usize];
-    signer.update(from).context(ServiceError::Internal(anyhow!(
-        "rsa signer update plaintext failed"
-    )))?;
+    signer
+        .update(from)
+        .map_err(|e| ServiceError::Internal(anyhow!(e)))?;
     Ok(signer
         .sign_to_vec()
-        .context(ServiceError::Internal(anyhow!("rsa sign error")))?)
+        .map_err(|e| ServiceError::Internal(anyhow!(e)))?)
 }
 
 pub fn verify(
     pub_key: &str,
     from: &[u8],
     signature: &[u8],
-    padding: rsa::Padding,
     message_digest: hash::MessageDigest,
 ) -> Result<bool> {
     let pkey =
@@ -52,11 +40,6 @@ pub fn verify(
     let mut verifier = openssl::sign::Verifier::new(message_digest, &pkey)
         .context(ServiceError::Internal(anyhow!(
             "pkey tansform verifer failed"
-        )))?;
-    verifier
-        .set_rsa_padding(padding)
-        .context(ServiceError::Internal(anyhow!(
-            "rsa verfier set padding failed"
         )))?;
     let _buf: Vec<u8> = vec![0; pkey.size() as usize];
     verifier

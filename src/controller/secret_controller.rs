@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use anyhow::Context;
 use axum::{extract::State, response::IntoResponse, Json};
 use chrono::Duration;
 use http::StatusCode;
@@ -116,7 +117,6 @@ pub async fn import_secret_params(
     let import_signature = kits::rsa::sign(
         &encrypt_pri_key,
         &decode64(&token)?,
-        rsa::Padding::PKCS1_OAEP,
         hash::MessageDigest::sha256(),
     )?;
     cache::redis_hsetex(
@@ -167,7 +167,6 @@ pub async fn import_secret(
         enctypt_pub_key,
         &decode64(import_token)?,
         &decode64(&form.import_token)?,
-        rsa::Padding::PKCS1_OAEP,
         hash::MessageDigest::sha256(),
     )? {
         return Err(ServiceError::VerifyFailed(format!(
