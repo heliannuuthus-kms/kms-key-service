@@ -37,7 +37,7 @@ async fn main() {
     let state = States { db, cache };
     let secret_router = Router::new()
         .route("/", post(create_secret))
-        .route("/import", post(import_secret_params))
+        .route("/import", post(import_secret))
         .route("/import/params", get(import_secret_params))
         .route("/meta", patch(set_secret_meta));
     let app = Router::new()

@@ -86,14 +86,14 @@ pub async fn create_secret(
 }
 
 #[utoipa::path(
-    post,
+    get,
     path="/secrets/import/params",
     operation_id = "导入密钥材料所需的参数",
     responses(
         (status = 200, description = "", body = String),
         (status = 400, description = "illegal params")
     ),
-    request_body = SecretImportForm
+    request_body = SecretImportParamsForm
 )]
 pub async fn import_secret_params(
     State(state): State<States>,
