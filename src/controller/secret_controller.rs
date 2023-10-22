@@ -13,7 +13,7 @@ use crate::{
         errors::{Result, ServiceError},
         kits::{
             self,
-            algorithm::{WrappingKeySpec, EC_SM2, RSA_2048},
+            algorithm::{KeyState, WrappingKeySpec, EC_SM2, RSA_2048},
         },
         utils::{self, decode64, gen_b64_id},
     },
@@ -40,49 +40,9 @@ pub async fn create_secret(
     state: State<States>,
     Json(form): Json<SecretCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let key_id = &common::utils::gen_b62_id(32);
-    let key_alg = kits::algorithm::select_key_alg(form.spec);
-    if !key_alg.key_usage.contains(&form.usage) {
-        return Err(ServiceError::BadRequest(format!(
-            "unsupported key usage({:?})",
-            form.usage
-        )));
-    }
-
-    let mut secret = t_secret::Model {
-        key_id: key_id.to_string(),
-        key_type: key_alg.key_type,
-        primary_key_id: "#".to_string(),
-        ..Default::default()
-    };
-
-    let mut secret_meta = t_secret_meta::Model {
-        key_id: key_id.to_string(),
-        origin: form.origin,
-        spec: form.spec,
-        usage: form.usage,
-        rotation_interval: form.rotation_interval.num_seconds(),
-        ..Default::default()
-    };
-
-    // fill secret rotation interval
-    if form.enable_automatic_rotation {
-        secret_meta.rotation_interval = form.rotation_interval.num_seconds();
-        // 往某个队列里投放密钥轮换的任务
-    }
-
-    if common::kits::algorithm::KeyOrigin::Kms.eq(&secret_meta.origin) {
-        let (pri_key, pub_key) = (key_alg.generator)()?;
-
-        if common::kits::algorithm::KeyType::Symmetric.eq(&key_alg.key_type) {
-            secret.key_pair = Some(pri_key);
-        } else {
-            secret.pub_key = Some(pub_key);
-            secret.pri_key = Some(pri_key);
-        }
-    }
+    
     let key_id: String =
-        secret_service::create_secret(&state.db, &secret, &secret_meta).await?;
+        secret_service::create_secret(&state.db, &form).await?;
     Ok((StatusCode::OK, axum::Json(json!({"key_id": key_id}))).into_response())
 }
 

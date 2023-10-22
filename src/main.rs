@@ -31,7 +31,7 @@ struct States {
 #[tokio::main]
 async fn main() {
     dotenv().expect(".env file not found");
-    common::logger::init();
+    common::log::init();
     let db = common::datasource::init().await.unwrap();
     let cache = common::cache::init().await.unwrap();
     let state = States { db, cache };
@@ -52,6 +52,5 @@ async fn main() {
     );
     axum::Server::bind(&addr.parse::<SocketAddr>().unwrap())
         .serve(app.into_make_service())
-        .await
-        .unwrap();
+        .await.unwrap();
 }
