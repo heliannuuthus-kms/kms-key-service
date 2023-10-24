@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::Context;
+use anyhow::{bail, Context};
 use axum::{extract::State, response::IntoResponse, Json};
 use chrono::Duration;
 use http::StatusCode;
@@ -11,15 +11,18 @@ use crate::{
     common::{
         self, cache,
         errors::{Result, ServiceError},
-        kits::{
+        secrets::{
             self,
             algorithm::{KeyState, WrappingKeySpec, EC_SM2, RSA_2048},
         },
         utils::{self, decode64, gen_b64_id},
     },
     entity::{t_secret, t_secret_meta},
-    pojo::form::secret::{
-        SecretCreateForm, SecretImportForm, SecretImportParamsForm,
+    pojo::{
+        form::secret::{
+            SecretCreateForm, SecretImportForm, SecretImportParamsForm,
+        },
+        result::secret::SecretMaterialImportParamsResult,
     },
     repository::secret_repository,
     service::secret_service,
@@ -40,7 +43,6 @@ pub async fn create_secret(
     state: State<States>,
     Json(form): Json<SecretCreateForm>,
 ) -> Result<impl IntoResponse> {
-    
     let key_id: String =
         secret_service::create_secret(&state.db, &form).await?;
     Ok((StatusCode::OK, axum::Json(json!({"key_id": key_id}))).into_response())
@@ -63,31 +65,45 @@ pub async fn import_secret_params(
     let key_id = &form.key_id;
     let States { db: _, ref cache } = state;
 
-    let key_alg: &common::kits::algorithm::KeyAlgorithm =
-        match form.wrapping_ey_spec {
-            WrappingKeySpec::Rsa2048 => &RSA_2048,
-            WrappingKeySpec::EcSm2 => &EC_SM2,
-        };
+    let (key_alg, signer_creator): (
+        &common::secrets::algorithm::KeyAlgorithm,
+        for<'a, 'b> fn(
+            &'a [u8],
+            hash::MessageDigest,
+        ) -> Result<openssl::sign::Signer<'a>>,
+    ) = match form.wrapping_key_spec {
+        WrappingKeySpec::Rsa2048 => (&RSA_2048, secrets::rsa::signer),
+        WrappingKeySpec::EcSm2 => (&EC_SM2, secrets::ec::signer),
+    };
     let (encrypt_pri_key, encrypt_pub_key) = (key_alg.generator)()?;
     let token = gen_b64_id(256);
 
-    let values =
-        vec![("import_token", &token), ("private_key", &encrypt_pri_key)];
     let exp = Duration::days(1);
-    let import_signature = kits::rsa::sign(
-        &encrypt_pri_key,
-        &decode64(&token)?,
-        hash::MessageDigest::sha256(),
-    )?;
-    cache::redis_hsetex(
+    let pri_key = &utils::decode64(&encrypt_pri_key)?;
+    let mut signer = signer_creator(pri_key, hash::MessageDigest::sha256())?;
+    signer
+        .update(&utils::decode64(&token)?)
+        .context("signer update failed")?;
+    let imported_signature =
+        utils::encode64(&signer.sign_to_vec().context("signer sign failed")?);
+    let result = SecretMaterialImportParamsResult {
+        key_id: key_id.to_owned(),
+        token: imported_signature.to_owned(),
+        pub_key: encrypt_pub_key,
+        expires_in: exp,
+        key_spec: form.wrapping_key_spec,
+    };
+    cache::redis_setex(
         cache,
         format!("kms:secrets:import:params:{}", key_id).as_str(),
-        values,
-        Some(exp),
+        serde_json::to_string(&result).context(format!(
+            "save import params failed, serialize result failed, key_id:{}",
+            key_id
+        ))?,
+        exp,
     )
     .await?;
-    let resp = json!({"key_id":key_id, "import_token": utils::encode64(&import_signature), "public_key": encrypt_pub_key, "expires_in": exp.num_seconds()});
-    Ok((StatusCode::OK, axum::Json(resp)).into_response())
+    Ok((StatusCode::OK, axum::Json(result)).into_response())
 }
 
 #[utoipa::path(
@@ -106,36 +122,50 @@ pub async fn import_secret(
 ) -> Result<impl IntoResponse> {
     let key_id = &form.key_id;
 
-    let secret_import_params = cache::redis_hgetall::<HashMap<String, String>>(
-        &cache,
-        format!("kms:secrets:import:params:{}", key_id).as_str(),
-    )
-    .await?;
+    let secret_meta =
+        match secret_repository::select_secret_meta(&db, key_id).await? {
+            Some(secret_meta) => secret_meta,
+            None => {
+                return Err(ServiceError::NotFount(format!(
+                    "secret meta is nonexitent, key_id: {}",
+                    key_id
+                )))
+            }
+        };
+    let secret_import_params =
+        match cache::redis_get::<SecretMaterialImportParamsResult>(
+            &cache,
+            format!("kms:secrets:import:params:{}", key_id).as_str(),
+        )
+        .await?
+        {
+            Some(params) => params,
+            None => {
+                return Err(ServiceError::BadRequest(format!(
+                    "missing import params, key_id: {}",
+                    key_id
+                )))
+            }
+        };
 
-    if secret_import_params.is_empty() {
-        return Err(ServiceError::BadRequest(format!(
-            "missing import params, key_id: {}",
-            key_id
-        )));
-    }
+    let (verifier_creator, decrypter_creator): (
+        for<'a, 'b> fn(
+            &'a [u8],
+            hash::MessageDigest,
+        ) -> Result<openssl::encrypt::Decrypter<'a>>,
+        for<'a, 'b> fn(
+            &'a [u8],
+            hash::MessageDigest,
+        ) -> Result<openssl::sign::Verifier<'a>>,
+    ) = match secret_import_params.key_spec {
+        WrappingKeySpec::Rsa2048 => (secrets::rsa::decrypter, secrets::rsa::verifier),
+        WrappingKeySpec::EcSm2 => (secrets::ec::decrypter, secrets::ec::verifier),
+    };
 
-    let import_token = secret_import_params.get("import_token").unwrap();
-    let enctypt_pri_key = secret_import_params.get("private_key").unwrap();
-    let enctypt_pub_key = secret_import_params.get("pub_key").unwrap();
+    
+    verifier_creator()
 
-    if !kits::rsa::verify(
-        enctypt_pub_key,
-        &decode64(import_token)?,
-        &decode64(&form.import_token)?,
-        hash::MessageDigest::sha256(),
-    )? {
-        return Err(ServiceError::VerifyFailed(format!(
-            "verify import token failed, key_id: {}",
-            key_id
-        )));
-    }
-
-    let key_pair = kits::rsa::decrypt(
+    let key_pair = secrets::rsa::decrypter(
         enctypt_pri_key,
         &utils::decode64(&form.encrypted_key_material)?,
         rsa::Padding::PKCS1_OAEP,
@@ -147,22 +177,22 @@ pub async fn import_secret(
             match secret_repository::select_secret(&db, key_id).await? {
                 Some(_secret) => {
                     let key_alg =
-                        kits::algorithm::select_key_alg(secret_meta.spec);
+                        secrets::algorithm::select_key_alg(secret_meta.spec);
                     let (pri_key, pub_key) = (key_alg.deriver)(&key_pair)?;
                     let mut secret = t_secret::Model::default();
                     match key_alg.key_type {
-                        kits::algorithm::KeyType::Symmetric => {
+                        secrets::algorithm::KeyType::Symmetric => {
                             secret.key_type =
-                                kits::algorithm::KeyType::Symmetric;
+                                secrets::algorithm::KeyType::Symmetric;
                             secret.key_pair = Some(pub_key);
                         }
-                        kits::algorithm::KeyType::Asymmetric => {
+                        secrets::algorithm::KeyType::Asymmetric => {
                             secret.key_type =
-                                kits::algorithm::KeyType::Asymmetric;
+                                secrets::algorithm::KeyType::Asymmetric;
                             secret.pub_key = Some(pub_key);
                             secret.pri_key = Some(pri_key);
                         }
-                        kits::algorithm::KeyType::Unknown => {
+                        secrets::algorithm::KeyType::Unknown => {
                             return Err(ServiceError::BadRequest(
                                 "known secret type".to_string(),
                             ))

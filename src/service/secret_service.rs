@@ -3,7 +3,7 @@ use sea_orm::*;
 use crate::{
     common::{
         errors::{Result, ServiceError},
-        kits::{
+        secrets::{
             self,
             algorithm::{KeyOrigin, KeyState, KeyType},
         },
@@ -20,7 +20,7 @@ pub async fn create_secret(
 ) -> Result<String> {
     let key_id = &utils::gen_b62_id(32);
 
-    let key_alg = kits::algorithm::select_key_alg(data.spec);
+    let key_alg = secrets::algorithm::select_key_alg(data.spec);
     if !key_alg.key_usage.contains(&data.usage) {
         return Err(ServiceError::BadRequest(format!(
             "unsupported key usage({:?})",

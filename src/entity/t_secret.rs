@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::common::kits::algorithm::KeyType;
+use crate::common::secrets::algorithm::KeyType;
 
 #[derive(
     Clone,

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use utoipa::ToSchema;
 
-use crate::common::kits::algorithm::{
+use crate::common::secrets::algorithm::{
     KeyOrigin, KeySpec, KeyUsage, WrappingKeyAlgorithm, WrappingKeySpec,
 };
 #[serde_as]
@@ -23,7 +23,7 @@ pub struct SecretCreateForm {
 pub struct SecretImportParamsForm {
     pub key_id: String,
     pub wrapping_algorithm: WrappingKeyAlgorithm,
-    pub wrapping_ey_spec: WrappingKeySpec,
+    pub wrapping_key_spec: WrappingKeySpec,
 }
 
 #[serde_as]
