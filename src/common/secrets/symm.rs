@@ -29,11 +29,11 @@ impl SymmAlgorithm {
     }
 
     pub fn aes_generate(&self, size: usize) -> Result<Vec<u8>> {
-        Ok(utils::generate_key(size)?)
+        utils::generate_key(size)
     }
 
     pub fn aes_iv_generate(&self, size: usize) -> Result<Vec<u8>> {
-        Ok(utils::generate_key(size)?)
+        utils::generate_key(size)
     }
 
     pub fn aes_encrypt(

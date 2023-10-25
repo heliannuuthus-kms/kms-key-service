@@ -46,7 +46,10 @@ impl RsaAlgorithm {
             .context("pkey tansform to rsa signer failed")?;
 
         if let Some(pad) = padding {
-            signer.set_rsa_padding(pad);
+            signer.set_rsa_padding(pad).context(format!(
+                "rsa signer set padding failed, {:?}",
+                padding
+            ))?;
         }
         signer
             .update(plaintext)
@@ -73,7 +76,10 @@ impl RsaAlgorithm {
             .context("rsa signer update plaintext failed")?;
 
         if let Some(pad) = padding {
-            verifier.set_rsa_padding(pad);
+            verifier.set_rsa_padding(pad).context(format!(
+                "rsa verifier set padding failed, {:?}",
+                padding
+            ))?;
         }
 
         Ok(verifier
@@ -95,7 +101,10 @@ impl RsaAlgorithm {
             .context("pkey tansform to decrypter failed")?;
 
         if let Some(pad) = padding {
-            encrypter.set_rsa_padding(pad);
+            encrypter.set_rsa_padding(pad).context(format!(
+                "rsa encrypter set padding failed, {:?}",
+                padding
+            ))?;
         }
 
         if let Some(md) = message_digest {
@@ -132,7 +141,10 @@ impl RsaAlgorithm {
             .context("pkey tansform to decrypter failed")?;
 
         if let Some(pad) = padding {
-            decrypter.set_rsa_padding(pad);
+            decrypter.set_rsa_padding(pad).context(format!(
+                "rsa decrypter set padding failed, {:?}",
+                padding
+            ))?;
         }
 
         if let Some(md) = message_digest {

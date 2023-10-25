@@ -75,7 +75,7 @@ impl ECAlgorithm {
             .context("pkey tansform to ec verifer failed")?;
         verifier
             .update(plaintext)
-            .context("ec verifier update plaintext failed");
+            .context("ec verifier update plaintext failed")?;
         Ok(verifier
             .verify(signature)
             .context("ec verifier veirify failed")?)
@@ -100,7 +100,7 @@ impl ECAlgorithm {
         ];
         encrypter
             .encrypt(plaintext, &mut to)
-            .context("ec encrypter encrypt failed");
+            .context("ec encrypter encrypt failed")?;
         Ok(to)
     }
 
