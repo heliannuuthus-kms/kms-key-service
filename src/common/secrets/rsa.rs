@@ -1,12 +1,10 @@
-use anyhow::{Context};
+use anyhow::Context;
 use openssl::{
     encrypt::{self},
     hash, pkey, rsa, sign,
 };
 
-use crate::common::{
-    errors::{Result},
-};
+use crate::common::errors::Result;
 
 pub struct RsaAlgorithm {}
 impl RsaAlgorithm {

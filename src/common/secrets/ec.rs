@@ -1,4 +1,4 @@
-use anyhow::{Context};
+use anyhow::Context;
 use openssl::{
     ec,
     encrypt::{self},
@@ -7,10 +7,7 @@ use openssl::{
     pkey, sign,
 };
 
-
-use crate::common::{
-    errors::{Result},
-};
+use crate::common::errors::Result;
 
 pub struct ECAlgorithm {}
 

@@ -1,9 +1,5 @@
 use anyhow::Context;
-use openssl::{
-    symm::{self, Cipher},
-};
-
-
+use openssl::symm::{self, Cipher};
 
 use crate::common::{
     errors::{Result, ServiceError},

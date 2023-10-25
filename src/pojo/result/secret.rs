@@ -3,9 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use utoipa::ToSchema;
 
-use crate::common::secrets::types::{
-    WrappingKeySpec,
-};
+use crate::common::secrets::types::WrappingKeySpec;
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Clone, ToSchema)]
