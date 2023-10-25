@@ -2,7 +2,9 @@ use anyhow::{anyhow, Context};
 use openssl::{
     ec,
     encrypt::{self, Decrypter},
-    hash, pkey, sign,
+    hash,
+    nid::Nid,
+    pkey, sign,
 };
 use serde::de;
 
@@ -14,6 +16,34 @@ use crate::common::{
 pub struct ECAlgorithm {}
 
 impl ECAlgorithm {
+    pub fn genrate(nid: Nid) -> Result<(Vec<u8>, Vec<u8>)> {
+        let ec_group = ec::EcGroup::from_curve_name(nid).context(format!(
+            "ec group create failed, curve_name: {:?}",
+            nid
+        ))?;
+        let key_pair = ec::EcKey::generate(&ec_group)
+            .context(format!("generate ec key failed, nid: {:?}", nid))?;
+        Ok((
+            key_pair.private_key_to_der().context(format!(
+                "export ec private key failed, nid: {:?}",
+                nid
+            ))?,
+            key_pair.public_key_to_der().context(format!(
+                "export ec public key failed, nid: {:?}",
+                nid
+            ))?,
+        ))
+    }
+
+    pub fn derive(private_key: &[u8]) -> Result<Vec<u8>> {
+        let ec_key_pair = ec::EcKey::private_key_from_der(private_key)
+            .context("import ec private key failed")?;
+
+        Ok(ec_key_pair
+            .public_key_to_der()
+            .context("export ec public key failed")?)
+    }
+
     pub fn sign(
         pri_key: &[u8],
         plaintext: &[u8],
@@ -32,7 +62,7 @@ impl ECAlgorithm {
         Ok(signer.sign_to_vec().context("ec signer sign failed")?)
     }
 
-    pub fn verifier(
+    pub fn verify(
         pub_key: &[u8],
         plaintext: &[u8],
         signature: &[u8],
@@ -51,7 +81,7 @@ impl ECAlgorithm {
             .context("ec verifier veirify failed")?)
     }
 
-    pub fn encrypter(
+    pub fn encrypt(
         pub_key: &[u8],
         plaintext: &[u8],
         message_digest: hash::MessageDigest,
@@ -74,7 +104,7 @@ impl ECAlgorithm {
         Ok(to)
     }
 
-    pub fn decrypter(
+    pub fn decrypt(
         private_key: &[u8],
         plaintext: &[u8],
         message_digest: hash::MessageDigest,

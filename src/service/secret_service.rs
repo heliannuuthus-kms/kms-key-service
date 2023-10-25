@@ -5,7 +5,7 @@ use crate::{
         errors::{Result, ServiceError},
         secrets::{
             self,
-            algorithm::{KeyOrigin, KeyState, KeyType},
+            types::{KeyOrigin, KeyState, KeyType},
         },
         utils,
     },
@@ -18,7 +18,7 @@ pub async fn create_secret(
     db: &DbConn,
     data: &SecretCreateForm,
 ) -> Result<String> {
-    let key_id = &utils::gen_b62_id(32);
+    let key_id = &utils::generate_b62(32)?;
 
     let key_alg = secrets::algorithm::select_key_alg(data.spec);
     if !key_alg.key_usage.contains(&data.usage) {
@@ -63,7 +63,6 @@ pub async fn create_secret(
     } else {
         secret_meta.state = KeyState::Pendingimport;
         // 存入缓存
-        
     }
     secret_repository::insert_secret_meta(db, &secret_meta).await?;
     Ok(secret_meta.key_id.to_owned())

@@ -1,11 +1,11 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use base64::{
     engine::general_purpose::{STANDARD_NO_PAD, URL_SAFE_NO_PAD},
     Engine,
 };
 use ring::rand::{SecureRandom, SystemRandom};
 
-use super::errors::Result;
+use super::errors::{Result, ServiceError};
 
 lazy_static::lazy_static! {
     static ref BASE62_CHARSETS: Vec<char> = vec![
@@ -15,19 +15,20 @@ lazy_static::lazy_static! {
       'Z', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
   ];
 }
-pub fn gen_b62_id(size: usize) -> String {
-    encode62(&gen_id(size))
+pub fn generate_b62(size: usize) -> Result<String> {
+    Ok(encode62(&generate_key(size)?))
 }
 
-pub fn gen_b64_id(size: usize) -> String {
-    encode64(&gen_id(size))
+pub fn generate_b64(size: usize) -> Result<String> {
+    Ok(encode64(&generate_key(size)?))
 }
 
-fn gen_id(size: usize) -> Vec<u8> {
+pub fn generate_key(size: usize) -> Result<Vec<u8>> {
     let rng = SystemRandom::new();
     let mut dest: Vec<u8> = vec![0; size];
-    rng.fill(&mut dest).unwrap();
-    dest
+    rng.fill(&mut dest)
+        .map_err(|e| ServiceError::InternalServer(anyhow!("rng error")));
+    Ok(dest)
 }
 
 pub fn encode62(source: &[u8]) -> String {

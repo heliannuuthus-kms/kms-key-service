@@ -11,7 +11,28 @@ use crate::common::{
 
 pub struct RsaAlgorithm {}
 impl RsaAlgorithm {
-    pub fn signer(
+    pub fn generate(size: usize) -> Result<(Vec<u8>, Vec<u8>)> {
+        let rrg = rsa::Rsa::generate(size as u32)
+            .context("rsa generate key failed")?;
+
+        Ok((
+            rrg.public_key_to_der()
+                .context("export rsa private key failed")?,
+            rrg.private_key_to_der()
+                .context("export rsa public key failed")?,
+        ))
+    }
+
+    pub fn derive(private_key: &[u8]) -> Result<Vec<u8>> {
+        let key_pair: rsa::Rsa<pkey::Private> =
+            rsa::Rsa::private_key_from_der(private_key)
+                .context("import rsa key failed")?;
+        Ok(key_pair
+            .public_key_to_der()
+            .context("export public key failed")?)
+    }
+
+    pub fn sign(
         pri_key: &[u8],
         plaintext: &[u8],
         message_digest: hash::MessageDigest,
@@ -34,7 +55,7 @@ impl RsaAlgorithm {
         Ok(signer.sign_to_vec().context("rsa signer sign failed")?)
     }
 
-    pub fn verifier(
+    pub fn verify(
         pub_key: &[u8],
         plaintext: &[u8],
         signature: &[u8],
@@ -60,7 +81,7 @@ impl RsaAlgorithm {
             .context("rsa verifier verify failed")?)
     }
 
-    pub fn encrypter(
+    pub fn encrypt(
         pub_key: &[u8],
         plaintext: &[u8],
         message_digest: Option<hash::MessageDigest>,

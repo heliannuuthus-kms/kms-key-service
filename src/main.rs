@@ -52,5 +52,6 @@ async fn main() {
     );
     axum::Server::bind(&addr.parse::<SocketAddr>().unwrap())
         .serve(app.into_make_service())
-        .await.unwrap();
+        .await
+        .unwrap();
 }

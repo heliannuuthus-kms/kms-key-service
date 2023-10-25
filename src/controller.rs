@@ -1,7 +1,7 @@
 use utoipa::OpenApi;
 
 use crate::{
-    common::secrets::algorithm::{
+    common::secrets::types::{
         KeyOrigin, KeySpec, KeyUsage, WrappingKeyAlgorithm, WrappingKeySpec,
     },
     pojo::form::secret::{

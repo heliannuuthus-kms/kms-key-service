@@ -13,9 +13,9 @@ use crate::{
         errors::{Result, ServiceError},
         secrets::{
             self,
-            algorithm::{KeyState, WrappingKeySpec, EC_SM2, RSA_2048},
+            types::{KeyState, WrappingKeySpec},
         },
-        utils::{self, decode64, gen_b64_id},
+        utils::{self, decode64, generate_b64},
     },
     entity::{t_secret, t_secret_meta},
     pojo::{
@@ -76,7 +76,7 @@ pub async fn import_secret_params(
         WrappingKeySpec::EcSm2 => (&EC_SM2, secrets::ec::signer),
     };
     let (encrypt_pri_key, encrypt_pub_key) = (key_alg.generator)()?;
-    let token = gen_b64_id(256);
+    let token = generate_b64(256);
 
     let exp = Duration::days(1);
     let pri_key = &utils::decode64(&encrypt_pri_key)?;
@@ -158,19 +158,13 @@ pub async fn import_secret(
             hash::MessageDigest,
         ) -> Result<openssl::sign::Verifier<'a>>,
     ) = match secret_import_params.key_spec {
-        WrappingKeySpec::Rsa2048 => (secrets::rsa::decrypter, secrets::rsa::verifier),
-        WrappingKeySpec::EcSm2 => (secrets::ec::decrypter, secrets::ec::verifier),
+        WrappingKeySpec::Rsa2048 => {
+            (secrets::rsa::decrypter, secrets::rsa::verifier)
+        }
+        WrappingKeySpec::EcSm2 => {
+            (secrets::ec::decrypter, secrets::ec::verifier)
+        }
     };
-
-    
-    verifier_creator()
-
-    let key_pair = secrets::rsa::decrypter(
-        enctypt_pri_key,
-        &utils::decode64(&form.encrypted_key_material)?,
-        rsa::Padding::PKCS1_OAEP,
-        hash::MessageDigest::sha256(),
-    )?;
 
     match secret_repository::select_secret_meta(&db, key_id).await? {
         Some(secret_meta) => {
