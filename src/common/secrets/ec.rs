@@ -1,16 +1,15 @@
-use anyhow::{anyhow, Context};
+use anyhow::{Context};
 use openssl::{
     ec,
-    encrypt::{self, Decrypter},
+    encrypt::{self},
     hash,
     nid::Nid,
     pkey, sign,
 };
-use serde::de;
+
 
 use crate::common::{
-    errors::{Result, ServiceError},
-    utils::{self},
+    errors::{Result},
 };
 
 pub struct ECAlgorithm {}
@@ -81,16 +80,12 @@ impl ECAlgorithm {
             .context("ec verifier veirify failed")?)
     }
 
-    pub fn encrypt(
-        pub_key: &[u8],
-        plaintext: &[u8],
-        message_digest: hash::MessageDigest,
-    ) -> Result<Vec<u8>> {
+    pub fn encrypt(pub_key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
         let ec_key_pair = ec::EcKey::public_key_from_der(pub_key)
             .context("import ec public key failed")?;
         let pkey_encrypter = pkey::PKey::from_ec_key(ec_key_pair.clone())
             .context("ec public key transform to pkey faield")?;
-        let mut encrypter = encrypt::Encrypter::new(&pkey_encrypter)
+        let encrypter = encrypt::Encrypter::new(&pkey_encrypter)
             .context("pkey tansform to decrypter failed")?;
         let mut to = vec![
             0;
@@ -104,16 +99,12 @@ impl ECAlgorithm {
         Ok(to)
     }
 
-    pub fn decrypt(
-        private_key: &[u8],
-        plaintext: &[u8],
-        message_digest: hash::MessageDigest,
-    ) -> Result<Vec<u8>> {
+    pub fn decrypt(private_key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
         let ec_key_pair = ec::EcKey::private_key_from_der(private_key)
             .context("import ec private key failed")?;
         let pkey_decrypter = pkey::PKey::from_ec_key(ec_key_pair.clone())
             .context("ec key transform to pkey faield")?;
-        let mut decrypter = encrypt::Decrypter::new(&pkey_decrypter)
+        let decrypter = encrypt::Decrypter::new(&pkey_decrypter)
             .context("pkey tansform to ec decrypter failed")?;
         let mut to = vec![
             0;

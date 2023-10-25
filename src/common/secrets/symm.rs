@@ -1,15 +1,13 @@
 use anyhow::Context;
 use openssl::{
-    cipher,
-    cipher_ctx::CipherCtx,
     symm::{self, Cipher},
 };
-use ring::rand::{SecureRandom, SystemRandom};
 
-use super::algorithm::{AES_128, AES_256};
+
+
 use crate::common::{
     errors::{Result, ServiceError},
-    utils::{self, generate_b64},
+    utils::{self},
 };
 
 pub struct SymmAlgorithm {}

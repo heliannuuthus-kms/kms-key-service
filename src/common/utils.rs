@@ -27,7 +27,7 @@ pub fn generate_key(size: usize) -> Result<Vec<u8>> {
     let rng = SystemRandom::new();
     let mut dest: Vec<u8> = vec![0; size];
     rng.fill(&mut dest)
-        .map_err(|e| ServiceError::InternalServer(anyhow!("rng error")))?;
+        .map_err(|_e| ServiceError::InternalServer(anyhow!("rng error")))?;
     Ok(dest)
 }
 

@@ -4,7 +4,7 @@ use serde_with::{serde_as, DurationSeconds};
 use utoipa::ToSchema;
 
 use crate::common::secrets::types::{
-    KeySpec, WrappingKeyAlgorithm, WrappingKeySpec,
+    WrappingKeySpec,
 };
 
 #[serde_as]

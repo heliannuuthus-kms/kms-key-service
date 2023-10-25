@@ -1,31 +1,12 @@
-use std::collections::HashMap;
-
-use anyhow::{bail, Context};
 use axum::{extract::State, response::IntoResponse, Json};
-use chrono::Duration;
 use http::StatusCode;
-use openssl::{hash, rsa};
 use serde_json::json;
 
 use crate::{
-    common::{
-        self, cache,
-        errors::{Result, ServiceError},
-        secrets::{
-            self,
-            types::{KeyState, WrappingKeySpec},
-        },
-        utils::{self, decode64, generate_b64},
+    common::errors::Result,
+    pojo::form::secret::{
+        SecretCreateForm, SecretImportForm, SecretImportParamsForm,
     },
-    entity::{t_secret, t_secret_meta},
-    pojo::{
-        form::secret::{
-            SecretCreateForm, SecretImportForm, SecretImportParamsForm,
-        },
-        result::secret::SecretMaterialImportParamsResult,
-    },
-    repository::secret_repository,
-    service::secret_service,
     States,
 };
 
@@ -40,8 +21,8 @@ use crate::{
     request_body = SecretCreateForm
 )]
 pub async fn create_secret(
-    state: State<States>,
-    Json(form): Json<SecretCreateForm>,
+    _state: State<States>,
+    Json(_form): Json<SecretCreateForm>,
 ) -> Result<impl IntoResponse> {
     Ok((StatusCode::OK, axum::Json(json!({"key_id": ""}))).into_response())
 }
@@ -57,8 +38,8 @@ pub async fn create_secret(
     request_body = SecretImportParamsForm
 )]
 pub async fn import_secret_params(
-    State(state): State<States>,
-    Json(form): Json<SecretImportParamsForm>,
+    State(_state): State<States>,
+    Json(_form): Json<SecretImportParamsForm>,
 ) -> Result<impl IntoResponse> {
     Ok((StatusCode::OK, axum::Json(json!({"key_id": ""}))).into_response())
 }
@@ -74,8 +55,8 @@ pub async fn import_secret_params(
     request_body = SecretImportForm
 )]
 pub async fn import_secret(
-    State(States { db, cache }): State<States>,
-    Json(form): Json<SecretImportForm>,
+    State(_state): State<States>,
+    Json(_form): Json<SecretImportForm>,
 ) -> Result<impl IntoResponse> {
     Ok((StatusCode::OK, axum::Json(json!({"key_id": ""}))).into_response())
 }

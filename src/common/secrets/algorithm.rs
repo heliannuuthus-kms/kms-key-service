@@ -6,14 +6,11 @@ use ring::{
     rand::{SecureRandom, SystemRandom},
 };
 
-
+use super::types::{KeySpec, KeyType, KeyUsage};
 use crate::common::{
     errors::{Result, ServiceError},
     utils::{self},
 };
-
-use super::types::{KeyType, KeySpec, KeyOrigin, KeyUsage};
-
 
 pub struct KeyAlgorithm {
     pub key_type: KeyType,
@@ -168,7 +165,9 @@ fn rsa_deriver(import_key: &[u8]) -> Result<(String, String)> {
     Ok((
         utils::encode64(import_key),
         utils::encode64(&rsa_key_pair.public_key_to_der().context(
-            ServiceError::InternalServer(anyhow!("rsa derive public key failed")),
+            ServiceError::InternalServer(anyhow!(
+                "rsa derive public key failed"
+            )),
         )?),
     ))
 }
@@ -179,7 +178,9 @@ fn ecc_deriver(import_key: &[u8]) -> Result<(String, String)> {
     Ok((
         utils::encode64(import_key),
         utils::encode64(&ec.public_key_to_der().context(
-            ServiceError::InternalServer(anyhow!("ec derive public key failed")),
+            ServiceError::InternalServer(anyhow!(
+                "ec derive public key failed"
+            )),
         )?),
     ))
 }
