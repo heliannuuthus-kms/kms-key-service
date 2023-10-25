@@ -9,7 +9,7 @@ use crate::{
         },
         utils,
     },
-    entity::{t_secret as TSecret, t_secret_meta as TSecretMeta},
+    entity::{self},
     pojo::form::secret::SecretCreateForm,
     repository::secret_repository,
 };
@@ -28,14 +28,14 @@ pub async fn create_secret(
         )));
     }
 
-    let mut secret = TSecret::Model {
+    let mut secret = entity::secret::Model {
         key_id: key_id.to_string(),
         key_type: key_alg.key_type,
-        primary_key_id: "#".to_string(),
+        kms_id: "#".to_string(),
         ..Default::default()
     };
 
-    let mut secret_meta = TSecretMeta::Model {
+    let mut secret_meta = entity::secret_meta::Model {
         key_id: key_id.to_string(),
         origin: data.origin,
         spec: data.spec,
