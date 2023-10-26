@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS t_kms (
   _id BIGINT NOT NULL AUTO_INCREMENT,
-  kms_id VARCHAR(128) NOT NULL COMMENT "kms 实例标识",
+  kms_id VARCHAR(32) NOT NULL COMMENT "kms 实例标识",
   name VARCHAR(32) NOT NULL COMMENT "kms 实例名称",
   description TEXT COMMENT "kms 实例描述信息",
   updated_at DATETIME NOT NULL DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP,
@@ -11,20 +11,20 @@ CREATE TABLE IF NOT EXISTS t_kms (
 );
 CREATE TABLE IF NOT EXISTS t_kms_aksk (
   _id BIGINT NOT NULL AUTO_INCREMENT,
-  kms_id VARCHAR(128) NOT NULL COMMENT "kms 实例标识",
-  access_key VARCHAR(128) NOT NULL COMMENT "kms 实例对应的 access_key",
-  secret_key TEXT NOT NULL COMMENT "kms 实例对应的 secret_key",
+  kms_id VARCHAR(32) NOT NULL COMMENT "kms 实例标识",
+  access_key VARCHAR(64) NOT NULL COMMENT "kms 实例对应的 access_key",
+  secret_key JSON NOT NULL COMMENT "kms 实例对应的 secret_key",
   expired_at DATETIME COMMENT "kms 实例对应的 secret_key 过期时间, 存在过期时间及为非主密钥",
   updated_at DATETIME NOT NULL DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP,
   created_at DATETIME NOT NULL DEFAULT NOW(),
   PRIMARY KEY(_id),
   UNIQUE uniq_key_id(kms_id),
-  UNIQUE uniq_access_key(access_key)
+  INDEX idx_access_key(access_key)
 );
 CREATE TABLE IF NOT EXISTS t_secret (
   _id BIGINT NOT NULL AUTO_INCREMENT,
-  key_id VARCHAR(128) NOT NULL COMMENT "主密钥标识",
-  kms_id VARCHAR(128) NOT NULL COMMENT "实例标识",
+  key_id VARCHAR(32) NOT NULL COMMENT "主密钥标识",
+  kms_id VARCHAR(32) NOT NULL COMMENT "实例标识",
   key_type ENUM('SYMMETRIC', "ASYMMETRIC", "UNKNWON") NOT NULL COMMENT "密钥类型 0: Symmetric，1: Asymmetric, 2: Unknown",
   key_pair TEXT COMMENT "对称密钥",
   private_key TEXT COMMENT "非称密钥私钥",

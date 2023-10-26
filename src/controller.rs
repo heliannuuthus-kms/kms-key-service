@@ -11,7 +11,9 @@ use crate::{
                 SecretCreateForm, SecretImportForm, SecretImportParamsQuery,
             },
         },
-        result::secret::SecretMaterialImportParamsResult,
+        result::{
+            kms::KmsAkskResult, secret::SecretMaterialImportParamsResult,
+        },
     },
 };
 
@@ -27,6 +29,7 @@ pub mod secret_controller;
         SecretMaterialImportParamsResult,
         KmsCreateForm,
         KmsUpdateForm,
+        KmsAkskResult,
         KeyUsage,
         KeyOrigin,
         KeySpec,
