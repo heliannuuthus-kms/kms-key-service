@@ -1,7 +1,8 @@
-use actix_web::{
-    http::{header::ContentType, StatusCode},
-    HttpResponse, ResponseError,
-};
+use axum::{response::IntoResponse, Json};
+use chrono::offset;
+use http::StatusCode;
+use sea_orm::DbErr;
+use serde_json::json;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, ServiceError>;
@@ -9,29 +10,49 @@ pub type Result<T> = std::result::Result<T, ServiceError>;
 #[derive(Debug, Error)]
 pub enum ServiceError {
     #[error("{0}")]
-    Reponse(#[from] actix_web::Error),
-    #[error("an unspecified internal error occurred {0}")]
-    Internal(#[from] anyhow::Error),
+    BadRequest(String),
+    #[error("illegal secret format {0}")]
+    ChaoticSecret(String),
+    #[error("sign failed {0}")]
+    SignFailed(String),
+    #[error("signature verify failed {0}")]
+    VerifyFailed(String),
+    #[error("{0}")]
+    NotFount(String),
+    #[error("internal server error {0}")]
+    InternalServer(#[from] anyhow::Error),
+    #[error("datasource error")]
+    Datasource(#[from] DbErr),
 }
 
-impl ResponseError for ServiceError {
-    fn status_code(&self) -> http::StatusCode {
-        match self {
-            ServiceError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            ServiceError::Reponse(e) => e.as_response_error().status_code(),
-        }
-    }
+impl IntoResponse for ServiceError {
+    fn into_response(self) -> axum::response::Response {
+        tracing::error!("{:?}", self);
+        let resp = match self {
+            ServiceError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+            ServiceError::SignFailed(msg) => (StatusCode::BAD_REQUEST, msg),
+            ServiceError::VerifyFailed(msg) => (StatusCode::BAD_REQUEST, msg),
+            ServiceError::NotFount(msg) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, msg)
+            }
+            ServiceError::InternalServer(e) => {
+                tracing::debug!("error backtrace: {}", e.backtrace());
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            }
+            ServiceError::Datasource(e) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            }
+            ServiceError::ChaoticSecret(msg) => (StatusCode::BAD_REQUEST, msg),
+        };
 
-    fn error_response(&self) -> HttpResponse {
-        HttpResponse::build(self.status_code())
-            .insert_header(ContentType::json())
-            .body(format!(
-                r#"{{
-              "code": {},
-              "msg": "{}"
-          }}"#,
-                self.status_code().as_str(),
-                self
-            ))
+        (
+            resp.0,
+            Json(json!({
+                "code": resp.0.as_u16(),
+                "msg": resp.1,
+                "timestamp": offset::Local::now()
+            })),
+        )
+            .into_response()
     }
 }
