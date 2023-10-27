@@ -30,6 +30,8 @@ struct States {
 
 #[tokio::main]
 async fn main() {
+    let api = ApiDoc::openapi();
+    let api_doc = api.to_pretty_json().unwrap();
     dotenv().expect(".env file not found");
     common::log::init();
     let db = common::datasource::init().await.unwrap();
@@ -42,7 +44,8 @@ async fn main() {
         .route("/meta", patch(set_secret_meta));
     let app = Router::new()
         .nest("/secrets", secret_router)
-        .merge(Redoc::with_url("/openapi", ApiDoc::openapi()))
+        .merge(Redoc::with_url("/openapi", api))
+        .route("/openapi/doc", get(move || async { api_doc }))
         .with_state(state);
 
     let addr = format!(
