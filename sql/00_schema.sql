@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS t_kms_aksk (
   updated_at DATETIME NOT NULL DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP,
   created_at DATETIME NOT NULL DEFAULT NOW(),
   PRIMARY KEY(_id),
-  UNIQUE uniq_key_id(kms_id),
-  INDEX idx_access_key(access_key)
+  INDEX idx_key_id(kms_id),
+  UNIQUE uniq_access_key(access_key)
 );
 CREATE TABLE IF NOT EXISTS t_secret (
   _id BIGINT NOT NULL AUTO_INCREMENT,

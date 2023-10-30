@@ -13,10 +13,10 @@ impl RsaAlgorithm {
             .context("rsa generate key failed")?;
 
         Ok((
-            rrg.public_key_to_der()
-                .context("export rsa private key failed")?,
             rrg.private_key_to_der()
                 .context("export rsa public key failed")?,
+            rrg.public_key_to_der()
+                .context("export rsa private key failed")?,
         ))
     }
 

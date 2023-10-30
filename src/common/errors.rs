@@ -11,6 +11,8 @@ pub type Result<T> = std::result::Result<T, ServiceError>;
 pub enum ServiceError {
     #[error("{0}")]
     BadRequest(String),
+    #[error("{0}")]
+    Unauthorized(String),
     #[error("illegal secret format {0}")]
     ChaoticSecret(String),
     #[error("sign failed {0}")]
@@ -30,11 +32,10 @@ impl IntoResponse for ServiceError {
         tracing::error!("{:?}", self);
         let resp = match self {
             ServiceError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
+            ServiceError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
             ServiceError::SignFailed(msg) => (StatusCode::BAD_REQUEST, msg),
             ServiceError::VerifyFailed(msg) => (StatusCode::BAD_REQUEST, msg),
-            ServiceError::NotFount(msg) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, msg)
-            }
+            ServiceError::NotFount(msg) => (StatusCode::NOT_FOUND, msg),
             ServiceError::InternalServer(e) => {
                 tracing::debug!("error backtrace: {}", e.backtrace());
                 (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())

@@ -6,7 +6,7 @@ use crate::{
     },
     pojo::{
         form::{
-            kms::{KmsCreateForm, KmsUpdateForm},
+            kms::{KmsAkskUpdateForm, KmsCreateForm, KmsUpdateForm},
             secret::{
                 SecretCreateForm, SecretImportForm, SecretImportParamsQuery,
             },
@@ -29,6 +29,7 @@ pub mod secret_controller;
         SecretMaterialImportParamsResult,
         KmsCreateForm,
         KmsUpdateForm,
+        KmsAkskUpdateForm,
         KmsAkskResult,
         KeyUsage,
         KeyOrigin,
@@ -45,6 +46,7 @@ pub mod secret_controller;
         kms_controller::set_kms,
         kms_controller::get_kms,
         kms_controller::destroy_kms,
+        kms_controller::rotate_kms_aksk,
     )
 )]
 pub struct ApiDoc {}

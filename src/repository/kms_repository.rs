@@ -1,11 +1,9 @@
 use std::cmp;
 
 use anyhow::Context;
-use chrono::Duration;
-use lazy_static::lazy_static;
 use sea_orm::{
-    entity::*, sea_query::OnConflict, ActiveModelTrait, ColumnTrait, DbConn,
-    EntityTrait, IntoActiveModel, QueryFilter,
+    sea_query::OnConflict, ActiveModelTrait, ColumnTrait, DbConn, EntityTrait,
+    IntoActiveModel, QueryFilter,
 };
 
 use crate::{
@@ -44,30 +42,31 @@ pub async fn insert_or_update_kms_instance(
 }
 
 pub async fn delete_kms_instance(db: &DbConn, kms_id: &str) -> Result<()> {
-    Kms::delete(entity::kms::ActiveModel {
-        kms_id: Set(kms_id.to_owned()),
-        ..Default::default()
-    })
-    .exec(db)
-    .await
-    .context(format!("delete kms instance failed, kms_id: {}", kms_id))?;
+    Kms::delete_many()
+        .filter(entity::kms::Column::KmsId.eq(kms_id))
+        .exec(db)
+        .await
+        .context(format!("delete kms instance failed, kms_id: {}", kms_id))?;
 
-    KmsAksk::delete(entity::kms_aksk::ActiveModel {
-        kms_id: Set(kms_id.to_owned()),
-        ..Default::default()
-    })
-    .exec(db)
-    .await
-    .context(format!("delete kms aksk failed, kms_id: {}", kms_id))?;
+    KmsAksk::delete_many()
+        .filter(entity::kms_aksk::Column::KmsId.eq(kms_id))
+        .exec(db)
+        .await
+        .context(format!("delete kms aksk failed, kms_id: {}", kms_id))?;
 
     Ok(())
 }
 
-pub async fn insert_kms_aksk(
+pub async fn insert_or_update_kms_aksk(
     db: &DbConn,
     model: &entity::kms_aksk::Model,
 ) -> Result<()> {
     KmsAksk::insert(model.clone().into_active_model())
+        .on_conflict(
+            OnConflict::column(entity::kms_aksk::Column::AccessKey)
+                .update_column(entity::kms_aksk::Column::ExpiredAt)
+                .to_owned(),
+        )
         .exec(db)
         .await
         .context(format!("insert kms aksk failed: {:?}", model))?;
@@ -75,17 +74,32 @@ pub async fn insert_kms_aksk(
     Ok(())
 }
 
-pub async fn select_kms_aksks_by_ak(
+pub async fn delete_kms_aksk_by_ak(
     db: &DbConn,
-    access_key: &str,
+    access_keys: &[String],
+) -> Result<()> {
+    KmsAksk::delete_many()
+        .filter(entity::kms_aksk::Column::AccessKey.is_in(access_keys))
+        .exec(db)
+        .await
+        .context(format!(
+            "delete kms aksk failed, access_keys: [{:?}]",
+            access_keys
+        ))?;
+    Ok(())
+}
+
+pub async fn select_kms_aksks(
+    db: &DbConn,
+    kms_id: &str,
 ) -> Result<Vec<entity::kms_aksk::Model>> {
     let mut models = KmsAksk::find()
-        .filter(entity::kms_aksk::Column::AccessKey.eq(access_key))
+        .filter(entity::kms_aksk::Column::KmsId.eq(kms_id))
         .all(db)
         .await
         .context(format!(
-            "select kms aksk by access_key failed, access_key: {}",
-            access_key,
+            "select kms aksk by kms_id failed, kms_id: {}",
+            kms_id,
         ))?;
     models.sort_by(|a, b| {
         if a.expired_at.is_none() {

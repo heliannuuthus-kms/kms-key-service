@@ -7,10 +7,7 @@ use http::StatusCode;
 
 use crate::{
     common::errors::{Result, ServiceError},
-    pojo::{
-        form::kms::{KmsCreateForm, KmsUpdateForm},
-        result::kms::KmsAkskResult,
-    },
+    pojo::form::kms::{KmsAkskUpdateForm, KmsCreateForm, KmsUpdateForm},
     repository::kms_repository,
     service::kms_service,
     States,
@@ -78,7 +75,13 @@ pub async fn set_kms(
     State(States { db, .. }): State<States>,
     Json(form): Json<KmsUpdateForm>,
 ) -> Result<impl IntoResponse> {
-    kms_service::set_kms(&db, form.try_into()?).await?;
+    let mut model = kms_service::get_kms(&db, &form.kms_id).await?;
+
+    if let Some(desc) = form.description {
+        model.description = Some(desc)
+    }
+
+    kms_service::set_kms(&db, model).await?;
     Ok(StatusCode::OK.into_response())
 }
 
@@ -93,27 +96,31 @@ pub async fn set_kms(
   request_body = KmsUpdateForm
 )]
 pub async fn destroy_kms(
-    State(_state): State<States>,
+    State(States { db, .. }): State<States>,
     Path(kms_id): Path<String>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("销毁 kms 实例 {:?}", kms_id);
-    Ok("".into_response())
-}
 
+    kms_service::delete_kms(&db, &kms_id).await?;
+
+    Ok(().into_response())
+}
 
 #[utoipa::path(
     post,
-    path="/kms/aksk/{access_key}/rotate",
-    operation_id = "轮转 kms_aksk",
+    path="/kms/{kms_id}/rotate",
+    operation_id = "轮换 kms_aksk",
     responses(
-        (status = 200, description = "kms ak/sk 数据对象", body = KmsAkskResult, content_type="application/json"),
+        (status = 200, description = "kms ak/sk 数据对象", body = KmsResult, content_type="application/json"),
         (status = 400, description = "illegal params")
     ),
-    request_body = KmsUpdateForm
+    request_body = KmsAkskUpdateForm
   )]
 pub async fn rotate_kms_aksk(
     State(States { db, .. }): State<States>,
-    Json(form): Json<KmsUpdateForm>,
+    Json(form): Json<KmsAkskUpdateForm>,
 ) -> Result<impl IntoResponse> {
-    
+    kms_service::set_kms_aksk(&db, &mut form.try_into()?)
+        .await
+        .map(Json)
 }

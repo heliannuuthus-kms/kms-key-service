@@ -10,7 +10,7 @@ pub fn init() {
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     let _ = tracing::subscriber::set_global_default(
         tracing_subscriber::fmt::Subscriber::builder()
-            .with_max_level(tracing::Level::INFO)
+            .with_max_level(tracing::Level::DEBUG)
             .finish()
             .with(
                 tracing_subscriber::fmt::Layer::default()
