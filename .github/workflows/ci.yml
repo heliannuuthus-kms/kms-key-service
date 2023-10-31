@@ -24,3 +24,4 @@ jobs:
     uses: heliannuuthus/workflow/.github/workflows/call-containerize.yml@master
     with:
       version: ${{ needs.build.outputs.version }}
+      target: target/release

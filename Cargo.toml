@@ -6,7 +6,7 @@ edition = "2021"
 [profile.release]
 debug = true
 [dependencies]
-axum = { version = "0.6.20", features = ["macros"] }
+axum = {git = "https://github.com/tokio-rs/axum", features = ["macros"]}
 serde = { version = "1.0", features = ["derive", "std"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { version = "1.33.0", features = ["full"] }
@@ -38,3 +38,4 @@ sea-orm = { version = "0.12", features = [
 ] }
 redis = { version = "0.23.3", features = ["json", "aio", "tokio-comp"] }
 moka = { version = "0.12.1", features = ["future"] }
+tower = "0.4.13"

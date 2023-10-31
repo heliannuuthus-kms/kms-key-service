@@ -1,4 +1,5 @@
+pub mod kms;
+pub mod kms_aksk;
 pub mod prelude;
-
-pub mod t_secret;
-pub mod t_secret_meta;
+pub mod secret;
+pub mod secret_meta;

@@ -17,20 +17,19 @@ use crate::common::secrets::types::KeyType;
 )]
 #[sea_orm(table_name = "t_secret")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    #[serde(skip_deserializing)]
+    #[sea_orm(column_name = "_id", primary_key)]
+    #[serde(skip)]
     pub id: i64,
     #[sea_orm(unique)]
     pub key_id: String,
-    pub primary_key_id: String,
+    pub kms_id: String,
     pub key_type: KeyType,
+    #[sea_orm(column_type = "Text")]
     pub key_pair: Option<String>,
+    #[sea_orm(column_type = "Text")]
     pub pub_key: Option<String>,
+    #[sea_orm(column_type = "Text")]
     pub pri_key: Option<String>,
-    #[serde(skip_deserializing)]
-    pub updated_at: DateTimeUtc,
-    #[serde(skip_deserializing)]
-    pub created_at: DateTimeUtc,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

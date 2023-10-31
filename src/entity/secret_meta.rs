@@ -17,8 +17,8 @@ use crate::common::secrets::types::{KeyOrigin, KeySpec, KeyState, KeyUsage};
 )]
 #[sea_orm(table_name = "t_secret_meta")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    #[serde(skip_deserializing)]
+    #[sea_orm(column_name = "_id", primary_key)]
+    #[serde(skip)]
     pub id: i64,
     #[sea_orm(unique)]
     pub key_id: String,
@@ -30,13 +30,9 @@ pub struct Model {
     pub usage: KeyUsage,
     pub rotation_interval: i64,
     pub creator: String,
-    pub material_expire_at: Option<DateTimeUtc>,
-    pub last_rotation_at: Option<DateTimeUtc>,
-    pub deletion_at: Option<DateTimeUtc>,
-    #[serde(skip_deserializing)]
-    pub updated_at: DateTimeUtc,
-    #[serde(skip_deserializing)]
-    pub created_at: DateTimeUtc,
+    pub material_expire_at: Option<DateTimeWithTimeZone>,
+    pub last_rotation_at: Option<DateTimeWithTimeZone>,
+    pub deletion_at: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

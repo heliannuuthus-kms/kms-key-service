@@ -4,6 +4,8 @@ use redis::{aio::Connection, Client, FromRedisValue, ToRedisArgs};
 
 use super::{configs::env_var, errors::Result};
 
+pub type RdConn = redis::Client;
+
 pub async fn init() -> Result<Client> {
     Ok(Client::open(format!(
         "redis://{}:{}",

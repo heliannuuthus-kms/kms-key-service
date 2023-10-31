@@ -20,7 +20,7 @@ pub struct SecretCreateForm {
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Clone)]
-pub struct SecretImportParamsForm {
+pub struct SecretImportParamsQuery {
     pub key_id: String,
     pub wrapping_algorithm: WrappingKeyAlgorithm,
     pub wrapping_key_spec: WrappingKeySpec,
