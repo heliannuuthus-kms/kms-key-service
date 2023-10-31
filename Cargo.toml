@@ -1,5 +1,5 @@
 [package]
-name = "kms-secret-service"
+name = "kms-key-service"
 version = "0.1.0"
 edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -40,3 +40,4 @@ redis = { version = "0.23.3", features = ["json", "aio", "tokio-comp"] }
 moka = { version = "0.12.1", features = ["future"] }
 tower = "0.4.13"
 itertools = "0.11.0"
+uuid = {version = "1.5.0", features = ["v7", "std"]}

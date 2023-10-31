@@ -6,7 +6,7 @@ use super::{configs::env_var, errors::Result};
 
 pub type RdConn = redis::Client;
 
-pub async fn init() -> Result<Client> {
+pub async fn init() -> Result<RdConn> {
     Ok(Client::open(format!(
         "redis://{}:{}",
         env_var::<String>("REDIS_HOST"),

@@ -4,7 +4,7 @@ use serde_with::{serde_as, DurationSeconds};
 use utoipa::ToSchema;
 
 use crate::common::encrypto::types::{
-    KeyOrigin, KeySpec, KeyType, KeyUsage, WrappingKeySpec, KeyState,
+    KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage,
 };
 
 #[serde_as]
@@ -32,7 +32,8 @@ pub struct KeyMaterialImportParamsResult {
     pub token: String,
     #[serde(rename = "public_key")]
     pub pub_key: String,
-    pub key_spec: WrappingKeySpec,
+    #[serde(rename = "private_key")]
+    pub pri_key: String,
     #[serde_as(as = "DurationSeconds<String>")]
     pub expires_in: Duration,
 }

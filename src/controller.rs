@@ -9,7 +9,10 @@ use crate::{
             key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
             kms::{KmsCreateForm, KmsUpdateForm},
         },
-        result::key::{KeyCreateResult, KeyMaterialImportParamsResult},
+        result::{
+            key::{KeyCreateResult, KeyMaterialImportParamsResult},
+            kms::KmsResult,
+        },
     },
 };
 
@@ -19,13 +22,14 @@ pub mod kms_controller;
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
+        KmsResult,
+        KmsCreateForm,
+        KmsUpdateForm,
         KeyCreateForm,
         KeyImportParamsQuery,
         KeyImportForm,
         KeyCreateResult,
         KeyMaterialImportParamsResult,
-        KmsCreateForm,
-        KmsUpdateForm,
         KeyUsage,
         KeyOrigin,
         KeySpec,

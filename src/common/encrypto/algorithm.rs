@@ -1,10 +1,6 @@
-use anyhow::{anyhow, Context};
 use lazy_static::lazy_static;
-use openssl::{nid::Nid, rsa};
-use ring::{
-    aead::{AES_128_GCM, AES_256_GCM},
-    rand::{SecureRandom, SystemRandom},
-};
+use openssl::nid::Nid;
+use ring::aead::{AES_128_GCM, AES_256_GCM};
 
 use super::{
     ec::ECAlgorithm,
@@ -12,10 +8,7 @@ use super::{
     symm::SymmAlgorithm,
     types::{KeySpec, KeyType, KeyUsage, WrappingKeySpec},
 };
-use crate::common::{
-    errors::{Result, ServiceError},
-    utils::{self},
-};
+use crate::common::errors::{Result, ServiceError};
 
 lazy_static! {
     static ref RSA_ALGORITHM: RsaAlgorithm = RsaAlgorithm::default();
@@ -42,16 +35,28 @@ pub struct KeyAlgorithm {
 }
 
 impl KeyAlgorithmFactory {
-    fn generate(&self, size: usize) -> Result<(Vec<u8>, Vec<u8>)> {
+    pub fn generate(
+        &self,
+        meta: &KeyAlgorithmMeta,
+    ) -> Result<(Vec<u8>, Vec<u8>)> {
         Ok(match self {
             KeyAlgorithmFactory::SYMM { factory } => {
-                let key = factory.aes_generate(size)?;
-                (key, key)
+                let key = factory.aes_generate(meta.key_size)?;
+                (key, vec![])
             }
             KeyAlgorithmFactory::RSA { factory } => {
-                factory.generate(size)?
+                factory.generate(meta.key_size)?
+            }
+            KeyAlgorithmFactory::EC { factory } => match meta.key_spec {
+                KeySpec::EcP256 => factory.genrate(Nid::X9_62_PRIME256V1)?,
+                KeySpec::EcP256K => factory.genrate(Nid::SECP256K1)?,
+                _ => {
+                    return Err(ServiceError::Unsupported(format!(
+                        "Unsupport ec key_spec: {:?}",
+                        meta.key_spec,
+                    )))
+                }
             },
-            KeyAlgorithmFactory::EC { factory } => todo!(),
         })
     }
 }

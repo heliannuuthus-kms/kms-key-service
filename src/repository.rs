@@ -1,2 +1,2 @@
-pub mod kms_repository;
 pub mod key_repository;
+pub mod kms_repository;

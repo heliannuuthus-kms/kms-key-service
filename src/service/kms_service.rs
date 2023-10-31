@@ -1,14 +1,9 @@
-use chrono::{Duration};
+use chrono::Duration;
 use lazy_static::lazy_static;
 use sea_orm::DbConn;
 
-
 use crate::{
-    common::{
-        errors::{Result, ServiceError},
-        encrypto::rsa::DefaultRsaAlgorithm,
-        utils,
-    },
+    common::errors::{Result, ServiceError},
     entity::{self},
     pojo::result::kms::KmsResult,
     repository::kms_repository,
@@ -26,19 +21,11 @@ lazy_static! {
             .build();
 }
 
-fn generate_aksk(_kms_id: &str) -> Result<(String, String)> {
-    let (left, right) = DefaultRsaAlgorithm::generate(2048)?;
-    Ok((utils::encode64(&left), utils::encode64(&right)))
-}
-
 pub async fn create_kms(
     db: &DbConn,
     model: &entity::kms::Model,
 ) -> Result<KmsResult> {
-    let (_left, _right) = generate_aksk(&model.kms_id)?;
-
     kms_repository::insert_or_update_kms_instance(db, model).await?;
-
     Ok(KmsResult {
         kms_id: model.kms_id.to_string(),
         name: model.name.to_string(),

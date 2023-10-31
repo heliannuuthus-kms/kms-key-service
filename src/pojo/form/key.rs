@@ -1,7 +1,7 @@
 use chrono::Duration;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 use crate::common::encrypto::types::{
     KeyOrigin, KeySpec, KeyUsage, WrappingKeyAlgorithm, WrappingKeySpec,
@@ -16,11 +16,11 @@ pub struct KeyCreateForm {
     #[serde(rename = "key_spec")]
     pub spec: KeySpec,
     pub enable_automatic_rotation: bool,
-    #[serde_as(as = "Option<DurationSeconds<String>>")]
+    #[serde_as(as = "Option<DurationSeconds<i64>>")]
     pub rotation_interval: Option<Duration>,
 }
 
-#[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
+#[derive(Serialize, Deserialize, ToSchema, Clone, Debug, IntoParams)]
 pub struct KeyImportParamsQuery {
     pub key_id: String,
     pub wrapping_algorithm: WrappingKeyAlgorithm,
@@ -31,8 +31,8 @@ pub struct KeyImportParamsQuery {
 #[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct KeyImportForm {
     pub key_id: String,
-    pub encrypted_key_material: String,
+    pub encrypted_secret_material: String,
     pub import_token: String,
-    #[serde_as(as = "DurationSeconds<String>")]
-    pub key_material_expire_in: Duration,
+    #[serde_as(as = "Option<DurationSeconds<i64>>")]
+    pub secret_material_expire_in: Option<Duration>,
 }

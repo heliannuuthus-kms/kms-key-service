@@ -1,12 +1,14 @@
 use axum::{
     extract::{Path, State},
     response::IntoResponse,
-    Json,
 };
 use http::StatusCode;
 
 use crate::{
-    common::errors::{Result, ServiceError},
+    common::{
+        axum::Json,
+        errors::{Result, ServiceError},
+    },
     pojo::form::kms::{KmsCreateForm, KmsUpdateForm},
     repository::kms_repository,
     service::kms_service,
@@ -45,7 +47,7 @@ pub async fn get_kms(
   operation_id = "创建 kms 实例",
   request_body = KmsCreateForm,
   responses(
-      (status = 200, description = "kms ak/sk 数据对象", body = KmsAkskResult, content_type="application/json"),
+      (status = 200, description = "kms ak/sk 数据对象", body = KmsResult, content_type="application/json"),
       (status = 400, description = "illegal params")
   ),
 )]

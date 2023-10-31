@@ -1,7 +1,7 @@
 use axum::{
     extract::{
         rejection::{FormRejection, JsonRejection, QueryRejection},
-        FromRequest,
+        FromRequest, FromRequestParts,
     },
     response::IntoResponse,
 };
@@ -18,7 +18,7 @@ pub struct Json<T>(pub T);
 #[from_request(via(axum::Form), rejection(ErrorResponse))]
 pub struct Form<T>(pub T);
 
-#[derive(FromRequest)]
+#[derive(FromRequestParts)]
 #[from_request(via(axum::extract::Query), rejection(ErrorResponse))]
 pub struct Query<T>(pub T);
 
@@ -70,6 +70,13 @@ impl From<QueryRejection> for ErrorResponse {
             msg: rejection.body_text(),
             timestamp: Local::now().fixed_offset(),
         }
+    }
+}
+
+impl<T: Serialize> IntoResponse for Query<T> {
+    fn into_response(self) -> axum::response::Response {
+        let Self(value) = self;
+        axum::Json(value).into_response()
     }
 }
 // We implement `IntoResponse` so `ApiError` can be used as a response

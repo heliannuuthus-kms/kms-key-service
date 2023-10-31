@@ -1,7 +1,6 @@
-
 use sea_orm::entity::*;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as};
+use serde_with::serde_as;
 use utoipa::ToSchema;
 
 use crate::{

@@ -4,7 +4,7 @@ use serde_json::json;
 
 use crate::{
     common::{
-        axum::{Form, Json, Query},
+        axum::{Json, Query},
         errors::Result,
     },
     pojo::form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
@@ -21,7 +21,7 @@ use crate::{
         (status = 200, description = "密钥标识",example = json!({"key_id": "key_id"}),body = String, content_type="application/json"),
         (status = 400, description = "illegal params")
     ),
-    request_body = SecretCreateForm
+    request_body = KeyCreateForm
 )]
 pub async fn create_key(
     State(States { db, .. }): State<States>,
@@ -36,18 +36,18 @@ pub async fn create_key(
     path="/import/params",
     operation_id = "导入密钥材料所需的参数",
     context_path= "/keys",
+    params(KeyImportParamsQuery),
     responses(
-        (status = 200, description = "", body = SecretMaterialImportParamsResult),
+        (status = 200, description = "", body = KeyMaterialImportParamsResult),
         (status = 400, description = "illegal params")
     ),
-    request_body = SecretImportParamsQuery
 )]
 pub async fn import_key_params(
-    State(States { db, .. }): State<States>,
+    State(States { db, rd }): State<States>,
     Query(form): Query<KeyImportParamsQuery>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create import key material, data: {:?}", form);
-    key_service::generate_key_import_params(&db, &form)
+    key_service::generate_key_import_params(&db, &rd, &form)
         .await
         .map(axum::Json)
 }
@@ -57,7 +57,7 @@ pub async fn import_key_params(
     path="/import",
     operation_id = "导入密钥材料",
     context_path= "/keys",
-    request_body = SecretImportForm,
+    request_body = KeyImportForm,
     responses(
         (status = 200, description = "", body = String),
         (status = 400, description = "illegal params")
@@ -79,7 +79,7 @@ pub async fn import_key(
         (status = 200, description = "", body = String),
         (status = 400, description = "illegal params")
     ),
-    request_body = SecretCreateForm
+    request_body = KeyCreateForm
 )]
 pub async fn set_key_meta(
     Json(_form): Json<KeyCreateForm>,

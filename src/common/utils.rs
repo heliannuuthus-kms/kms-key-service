@@ -31,6 +31,10 @@ pub fn generate_key(size: usize) -> Result<Vec<u8>> {
     Ok(dest)
 }
 
+pub fn uuid() -> String {
+    uuid::Uuid::new_v4().as_simple().to_string()
+}
+
 pub fn encode62(source: &[u8]) -> String {
     let base: usize = BASE62_CHARSETS.len();
     let mut result = String::new();

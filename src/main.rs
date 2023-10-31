@@ -1,8 +1,9 @@
 use axum::{
+    response::Html,
     routing::{delete, get, patch, post, put},
     Router,
 };
-use common::configs::env_var;
+use common::{cache::RdConn, configs::env_var};
 use controller::{
     key_controller::{create_key, import_key, import_key_params, set_key_meta},
     kms_controller::{create_kms, destroy_kms, get_kms, set_kms},
@@ -11,6 +12,7 @@ use controller::{
 use dotenvy::dotenv;
 use sea_orm::DbConn;
 use utoipa::OpenApi;
+use utoipa_redoc::Redoc;
 
 mod common;
 mod controller;
@@ -22,18 +24,20 @@ mod service;
 #[derive(Clone)]
 struct States {
     db: DbConn,
-    cache: redis::Client,
+    rd: RdConn,
 }
 
 #[tokio::main]
 async fn main() {
-    let api = ApiDoc::openapi();
-    let api_doc = api.to_pretty_json().unwrap();
+    let openapi = ApiDoc::openapi();
+    let api_doc = openapi.to_pretty_json().unwrap();
     dotenv().expect(".env file not found");
     common::log::init();
-    let db = common::datasource::init().await.unwrap();
-    let cache = common::cache::init().await.unwrap();
-    let state = States { db, cache };
+    let state = States {
+        db: common::datasource::init().await.unwrap(),
+        rd: common::cache::init().await.unwrap(),
+    };
+
     let key_router = Router::new()
         .route("/", post(create_key))
         .route("/import", post(import_key))
@@ -47,6 +51,10 @@ async fn main() {
     let app = Router::new()
         .nest("/kms", kms_router)
         .nest("/keys", key_router)
+        .route(
+            "/openapi",
+            get(move || async { Html::from(Redoc::new(openapi).to_html()) }),
+        )
         .route("/openapi/doc", get(move || async { api_doc }))
         .with_state(state);
 

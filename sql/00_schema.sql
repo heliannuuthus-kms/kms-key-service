@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS t_key_meta (
     "IMPORT_DELETION"
   ) NOT NULL COMMENT "密钥状态, 0: enable，1: disable，2: pending_deletion，3: import_deletion",
   `usage` ENUM("ENCRYPT/DECRYPT", "SIGN/VERIFY") NOT NULL COMMENT "密钥用途，0: encrypt/decrypt，1: sign/verify",
+  `version` VARCHAR(32) NOT NULL COMMENT "密钥版本",
   creator VARCHAR(32) NOT NULL COMMENT "密钥创建者",
   rotation_interval BIGINT NOT NULL COMMENT "密钥轮换周期，开启轮换 > 0，不开启为 -1",
   material_expire_at DATETIME COMMENT "密钥材料过期时间",
