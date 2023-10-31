@@ -44,7 +44,7 @@ pub async fn create_secret(
 )]
 pub async fn import_secret_params(
     State(_state): State<States>,
-    Query(_form): Query<SecretImportParamsQuery>,
+    Json(_form): Json<SecretImportParamsQuery>,
 ) -> Result<impl IntoResponse> {
     Ok((StatusCode::OK, axum::Json(json!({"key_id": ""}))).into_response())
 }

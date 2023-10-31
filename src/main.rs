@@ -19,7 +19,6 @@ use utoipa::OpenApi;
 mod common;
 mod controller;
 mod entity;
-mod middleware;
 mod pojo;
 mod repository;
 mod service;
