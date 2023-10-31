@@ -39,3 +39,4 @@ sea-orm = { version = "0.12", features = [
 redis = { version = "0.23.3", features = ["json", "aio", "tokio-comp"] }
 moka = { version = "0.12.1", features = ["future"] }
 tower = "0.4.13"
+itertools = "0.11.0"

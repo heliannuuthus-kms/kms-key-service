@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::common::secrets::types::KeyType;
+use crate::common::encrypto::types::{KeyOrigin, KeySpec, KeyState, KeyUsage};
 
 #[derive(
     Clone,
@@ -15,21 +15,24 @@ use crate::common::secrets::types::KeyType;
     Deserialize,
     Default,
 )]
-#[sea_orm(table_name = "t_secret")]
+#[sea_orm(table_name = "t_key_meta")]
 pub struct Model {
     #[sea_orm(column_name = "_id", primary_key)]
     #[serde(skip)]
     pub id: i64,
     #[sea_orm(unique)]
     pub key_id: String,
-    pub kms_id: String,
-    pub key_type: KeyType,
-    #[sea_orm(column_type = "Text")]
-    pub key_pair: Option<String>,
-    #[sea_orm(column_type = "Text")]
-    pub pub_key: Option<String>,
-    #[sea_orm(column_type = "Text")]
-    pub pri_key: Option<String>,
+    pub spec: KeySpec,
+    pub origin: KeyOrigin,
+    #[sea_orm(column_type = "Text", nullable)]
+    pub description: Option<String>,
+    pub state: KeyState,
+    pub usage: KeyUsage,
+    pub rotation_interval: i64,
+    pub creator: String,
+    pub material_expire_at: Option<DateTimeWithTimeZone>,
+    pub last_rotation_at: Option<DateTimeWithTimeZone>,
+    pub deletion_at: Option<DateTimeWithTimeZone>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

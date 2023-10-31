@@ -7,7 +7,7 @@ use http::StatusCode;
 
 use crate::{
     common::errors::{Result, ServiceError},
-    pojo::form::kms::{KmsAkskUpdateForm, KmsCreateForm, KmsUpdateForm},
+    pojo::form::kms::{KmsCreateForm, KmsUpdateForm},
     repository::kms_repository,
     service::kms_service,
     States,
@@ -104,23 +104,4 @@ pub async fn destroy_kms(
     kms_service::delete_kms(&db, &kms_id).await?;
 
     Ok(().into_response())
-}
-
-#[utoipa::path(
-    post,
-    path="/kms/{kms_id}/rotate",
-    operation_id = "轮换 kms_aksk",
-    responses(
-        (status = 200, description = "kms ak/sk 数据对象", body = KmsResult, content_type="application/json"),
-        (status = 400, description = "illegal params")
-    ),
-    request_body = KmsAkskUpdateForm
-  )]
-pub async fn rotate_kms_aksk(
-    State(States { db, .. }): State<States>,
-    Json(form): Json<KmsAkskUpdateForm>,
-) -> Result<impl IntoResponse> {
-    kms_service::set_kms_aksk(&db, &mut form.try_into()?)
-        .await
-        .map(Json)
 }

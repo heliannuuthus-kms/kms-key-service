@@ -9,10 +9,11 @@ use openssl::{
 
 use crate::common::errors::Result;
 
+#[derive(Default)]
 pub struct ECAlgorithm {}
 
 impl ECAlgorithm {
-    pub fn genrate(nid: Nid) -> Result<(Vec<u8>, Vec<u8>)> {
+    pub fn genrate(&self, nid: Nid) -> Result<(Vec<u8>, Vec<u8>)> {
         let ec_group = ec::EcGroup::from_curve_name(nid).context(format!(
             "ec group create failed, curve_name: {:?}",
             nid
@@ -31,7 +32,7 @@ impl ECAlgorithm {
         ))
     }
 
-    pub fn derive(private_key: &[u8]) -> Result<Vec<u8>> {
+    pub fn derive(&self, private_key: &[u8]) -> Result<Vec<u8>> {
         let ec_key_pair = ec::EcKey::private_key_from_der(private_key)
             .context("import ec private key failed")?;
 
@@ -41,6 +42,7 @@ impl ECAlgorithm {
     }
 
     pub fn sign(
+        &self,
         pri_key: &[u8],
         plaintext: &[u8],
         message_digest: hash::MessageDigest,
@@ -59,6 +61,7 @@ impl ECAlgorithm {
     }
 
     pub fn verify(
+        &self,
         pub_key: &[u8],
         plaintext: &[u8],
         signature: &[u8],
@@ -77,7 +80,7 @@ impl ECAlgorithm {
             .context("ec verifier veirify failed")?)
     }
 
-    pub fn encrypt(pub_key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
+    pub fn encrypt(&self, pub_key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
         let ec_key_pair = ec::EcKey::public_key_from_der(pub_key)
             .context("import ec public key failed")?;
         let pkey_encrypter = pkey::PKey::from_ec_key(ec_key_pair.clone())
@@ -96,7 +99,11 @@ impl ECAlgorithm {
         Ok(to)
     }
 
-    pub fn decrypt(private_key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
+    pub fn decrypt(
+        &self,
+        private_key: &[u8],
+        plaintext: &[u8],
+    ) -> Result<Vec<u8>> {
         let ec_key_pair = ec::EcKey::private_key_from_der(private_key)
             .context("import ec private key failed")?;
         let pkey_decrypter = pkey::PKey::from_ec_key(ec_key_pair.clone())

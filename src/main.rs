@@ -4,12 +4,8 @@ use axum::{
 };
 use common::configs::env_var;
 use controller::{
-    kms_controller::{
-        create_kms, destroy_kms, get_kms, rotate_kms_aksk, set_kms,
-    },
-    secret_controller::{
-        create_secret, import_secret, import_secret_params, set_secret_meta,
-    },
+    key_controller::{create_key, import_key, import_key_params, set_key_meta},
+    kms_controller::{create_kms, destroy_kms, get_kms, set_kms},
     ApiDoc,
 };
 use dotenvy::dotenv;
@@ -38,20 +34,19 @@ async fn main() {
     let db = common::datasource::init().await.unwrap();
     let cache = common::cache::init().await.unwrap();
     let state = States { db, cache };
-    let secret_router = Router::new()
-        .route("/", post(create_secret))
-        .route("/import", post(import_secret))
-        .route("/import/params", get(import_secret_params))
-        .route("/meta", patch(set_secret_meta));
+    let key_router = Router::new()
+        .route("/", post(create_key))
+        .route("/import", post(import_key))
+        .route("/import/params", get(import_key_params))
+        .route("/meta", patch(set_key_meta));
     let kms_router = Router::new()
         .route("/", post(create_kms))
         .route("/", put(set_kms))
         .route("/:kms_id", get(get_kms))
-        .route("/:kms_id", delete(destroy_kms))
-        .route("/:kms_id/rotate", post(rotate_kms_aksk));
+        .route("/:kms_id", delete(destroy_kms));
     let app = Router::new()
         .nest("/kms", kms_router)
-        .nest("/secrets", secret_router)
+        .nest("/keys", key_router)
         .route("/openapi/doc", get(move || async { api_doc }))
         .with_state(state);
 

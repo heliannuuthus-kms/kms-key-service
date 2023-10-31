@@ -6,9 +6,10 @@ use openssl::{
 
 use crate::common::errors::Result;
 
+#[derive(Default)]
 pub struct RsaAlgorithm {}
 impl RsaAlgorithm {
-    pub fn generate(size: usize) -> Result<(Vec<u8>, Vec<u8>)> {
+    pub fn generate(&self, size: usize) -> Result<(Vec<u8>, Vec<u8>)> {
         let rrg = rsa::Rsa::generate(size as u32)
             .context("rsa generate key failed")?;
 
@@ -20,7 +21,7 @@ impl RsaAlgorithm {
         ))
     }
 
-    pub fn derive(private_key: &[u8]) -> Result<Vec<u8>> {
+    pub fn derive(&self, private_key: &[u8]) -> Result<Vec<u8>> {
         let key_pair: rsa::Rsa<pkey::Private> =
             rsa::Rsa::private_key_from_der(private_key)
                 .context("import rsa key failed")?;
@@ -30,6 +31,7 @@ impl RsaAlgorithm {
     }
 
     pub fn sign(
+        &self,
         pri_key: &[u8],
         plaintext: &[u8],
         message_digest: hash::MessageDigest,
@@ -56,6 +58,7 @@ impl RsaAlgorithm {
     }
 
     pub fn verify(
+        &self,
         pub_key: &[u8],
         plaintext: &[u8],
         signature: &[u8],
@@ -85,6 +88,7 @@ impl RsaAlgorithm {
     }
 
     pub fn encrypt(
+        &self,
         pub_key: &[u8],
         plaintext: &[u8],
         message_digest: Option<hash::MessageDigest>,
@@ -125,6 +129,7 @@ impl RsaAlgorithm {
     }
 
     pub fn decrypt(
+        &self,
         private_key: &[u8],
         cipher: &[u8],
         message_digest: Option<hash::MessageDigest>,

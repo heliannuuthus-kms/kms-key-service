@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::common::secrets::types::{KeyOrigin, KeySpec, KeyState, KeyUsage};
+use crate::common::encrypto::types::KeyType;
 
 #[derive(
     Clone,
@@ -15,24 +15,28 @@ use crate::common::secrets::types::{KeyOrigin, KeySpec, KeyState, KeyUsage};
     Deserialize,
     Default,
 )]
-#[sea_orm(table_name = "t_secret_meta")]
+#[sea_orm(table_name = "t_key")]
 pub struct Model {
     #[sea_orm(column_name = "_id", primary_key)]
     #[serde(skip)]
     pub id: i64,
     #[sea_orm(unique)]
     pub key_id: String,
-    pub spec: KeySpec,
-    pub origin: KeyOrigin,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub description: Option<String>,
-    pub state: KeyState,
-    pub usage: KeyUsage,
-    pub rotation_interval: i64,
-    pub creator: String,
-    pub material_expire_at: Option<DateTimeWithTimeZone>,
-    pub last_rotation_at: Option<DateTimeWithTimeZone>,
-    pub deletion_at: Option<DateTimeWithTimeZone>,
+    pub kms_id: String,
+    pub key_type: KeyType,
+    pub key_pair: Option<Json>,
+    pub version: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SymmtricKeyPair {
+    pub key_pair: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct AsymmtricKeyPair {
+    pub private_key: String,
+    pub public_key: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -9,34 +9,21 @@ CREATE TABLE IF NOT EXISTS t_kms (
   UNIQUE uniq_key_id(kms_id),
   INDEX idx_kms_name(kms_id)
 );
-CREATE TABLE IF NOT EXISTS t_kms_aksk (
-  _id BIGINT NOT NULL AUTO_INCREMENT,
-  kms_id VARCHAR(32) NOT NULL COMMENT "kms 实例标识",
-  access_key VARCHAR(64) NOT NULL COMMENT "kms 实例对应的 access_key",
-  secret_key JSON NOT NULL COMMENT "kms 实例对应的 secret_key",
-  expired_at DATETIME COMMENT "kms 实例对应的 secret_key 过期时间, 存在过期时间及为非主密钥",
-  updated_at DATETIME NOT NULL DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP,
-  created_at DATETIME NOT NULL DEFAULT NOW(),
-  PRIMARY KEY(_id),
-  INDEX idx_key_id(kms_id),
-  UNIQUE uniq_access_key(access_key)
-);
-CREATE TABLE IF NOT EXISTS t_secret (
+CREATE TABLE IF NOT EXISTS t_key (
   _id BIGINT NOT NULL AUTO_INCREMENT,
   key_id VARCHAR(32) NOT NULL COMMENT "主密钥标识",
   kms_id VARCHAR(32) NOT NULL COMMENT "实例标识",
   key_type ENUM('SYMMETRIC', "ASYMMETRIC", "UNKNWON") NOT NULL COMMENT "密钥类型 0: Symmetric，1: Asymmetric, 2: Unknown",
-  key_pair TEXT COMMENT "对称密钥",
-  private_key TEXT COMMENT "非称密钥私钥",
-  public_key TEXT COMMENT "非对称密钥公钥",
+  key_pair JSON COMMENT "密钥内容",
+  `version` VARCHAR(32) NOT NULL COMMENT "密钥版本",
   updated_at DATETIME NOT NULL DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP,
   created_at DATETIME NOT NULL DEFAULT NOW(),
   PRIMARY KEY(_id),
   UNIQUE uniq_key_id(key_id),
-  UNIQUE uniq_key_id_type(key_id, key_type),
+  UNIQUE uniq_key_id_version(key_id, `version`),
   INDEX idx_kms_id(kms_id)
 );
-CREATE TABLE IF NOT EXISTS t_secret_meta (
+CREATE TABLE IF NOT EXISTS t_key_meta (
   _id BIGINT NOT NULL AUTO_INCREMENT,
   key_id VARCHAR(32) NOT NULL COMMENT "主密钥标识",
   spec ENUM(
@@ -56,8 +43,8 @@ CREATE TABLE IF NOT EXISTS t_secret_meta (
     "IMPORT_DELETION"
   ) NOT NULL COMMENT "密钥状态, 0: enable，1: disable，2: pending_deletion，3: import_deletion",
   `usage` ENUM("ENCRYPT/DECRYPT", "SIGN/VERIFY") NOT NULL COMMENT "密钥用途，0: encrypt/decrypt，1: sign/verify",
-  rotation_interval BIGINT NOT NULL COMMENT "密钥轮换周期，开启轮换 > 0，不开启为 -1",
   creator VARCHAR(32) NOT NULL COMMENT "密钥创建者",
+  rotation_interval BIGINT NOT NULL COMMENT "密钥轮换周期，开启轮换 > 0，不开启为 -1",
   material_expire_at DATETIME COMMENT "密钥材料过期时间",
   last_rotation_at DATETIME COMMENT "密钥上次轮换事件，为 null 表示未发生过轮换",
   deletion_at DATETIME COMMENT "密钥预计删除时间 null 表示不删除",

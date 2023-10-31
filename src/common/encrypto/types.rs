@@ -156,7 +156,7 @@ pub enum KeyStateStatus {
 }
 
 #[derive(
-    Deserialize, Serialize, Clone, PartialEq, Eq, Default, Copy, ToSchema,
+    Deserialize, Serialize, Clone, PartialEq, Eq, Default, Copy, ToSchema, Debug,
 )]
 pub enum WrappingKeyAlgorithm {
     #[default]
@@ -171,7 +171,7 @@ pub enum WrappingKeyAlgorithm {
 }
 
 #[derive(
-    Deserialize, Serialize, Clone, PartialEq, Eq, Default, Copy, ToSchema,
+    Deserialize, Serialize, Clone, PartialEq, Eq, Default, Copy, ToSchema, Debug,
 )]
 pub enum WrappingKeySpec {
     #[default]

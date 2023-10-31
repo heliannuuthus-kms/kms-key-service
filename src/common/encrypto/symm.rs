@@ -1,3 +1,5 @@
+use std::default;
+
 use anyhow::Context;
 use openssl::symm::{self, Cipher};
 
@@ -6,6 +8,7 @@ use crate::common::{
     utils::{self},
 };
 
+#[derive(Default)]
 pub struct SymmAlgorithm {}
 
 impl SymmAlgorithm {
