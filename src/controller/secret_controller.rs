@@ -1,9 +1,12 @@
-use axum::{extract::State, response::IntoResponse, Json};
+use axum::{extract::State, response::IntoResponse};
 use http::StatusCode;
 use serde_json::json;
 
 use crate::{
-    common::errors::Result,
+    common::{
+        axum::{Form, Json},
+        errors::Result,
+    },
     pojo::form::secret::{
         SecretCreateForm, SecretImportForm, SecretImportParamsForm,
     },
@@ -22,7 +25,7 @@ use crate::{
 )]
 pub async fn create_secret(
     _state: State<States>,
-    Json(_form): Json<SecretCreateForm>,
+    Form(_form): Form<SecretCreateForm>,
 ) -> Result<impl IntoResponse> {
     Ok((StatusCode::OK, axum::Json(json!({"key_id": ""}))).into_response())
 }
