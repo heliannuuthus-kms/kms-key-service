@@ -1,6 +1,12 @@
+use std::{self, ffi::c_int, option::Option};
+
+use openssl::rsa::Padding;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+
+use crate::common::errors::{Result, ServiceError};
+
 #[derive(
     Deserialize,
     Serialize,
@@ -179,4 +185,96 @@ pub enum WrappingKeySpec {
     Rsa2048,
     #[serde(rename = "EC_SM2")]
     EcSm2,
+}
+
+pub trait KeyAlgorithmFactory {
+    type GenrateBasic;
+    fn generate(&self, basic: Self::GenrateBasic)
+        -> Result<(Vec<u8>, Vec<u8>)>;
+    fn derive(&self, private_key: &[u8]) -> Result<Vec<u8>>;
+    fn sign<T: EncryptoAdaptor>(
+        &self,
+        pri_key: &[u8],
+        plaintext: &[u8],
+        e: T,
+    ) -> Result<Vec<u8>>;
+    fn verify<T: EncryptoAdaptor>(
+        &self,
+        pub_key: &[u8],
+        plaintext: &[u8],
+        signature: &[u8],
+        e: T,
+    ) -> Result<bool>;
+    fn encrypt<T: EncryptoAdaptor>(
+        &self,
+        pub_key: &[u8],
+        plaintext: &[u8],
+        e: T,
+    ) -> Result<Vec<u8>>;
+    fn decrypt<T: EncryptoAdaptor>(
+        &self,
+        private_key: &[u8],
+        plaintext: &[u8],
+        e: T,
+    ) -> Result<Vec<u8>>;
+}
+
+pub trait EncryptoAdaptor {
+    fn padding(&self) -> Option<openssl::rsa::Padding>;
+    fn kits(&self) -> Option<Vec<Vec<u8>>>;
+    fn md(&self) -> Option<openssl::hash::MessageDigest>;
+}
+
+pub struct RsaEncrypto {
+    padding: Padding,
+    md: openssl::hash::MessageDigest,
+}
+
+impl EncryptoAdaptor for RsaEncrypto {
+    fn padding(&self) -> Option<openssl::rsa::Padding> {
+        Some(self.padding)
+    }
+
+    fn kits(&self) -> Option<Vec<Vec<u8>>> {
+        None
+    }
+
+    fn md(&self) -> Option<openssl::hash::MessageDigest> {
+        Some(self.md)
+    }
+}
+
+impl EncryptoAdaptor for EcEncrypto {
+    fn padding(&self) -> Option<openssl::rsa::Padding> {
+        None
+    }
+
+    fn kits(&self) -> Option<Vec<Vec<u8>>> {
+        None
+    }
+
+    fn md(&self) -> Option<openssl::hash::MessageDigest> {
+        Some(self.md)
+    }
+}
+
+pub struct EcEncrypto {
+    md: openssl::hash::MessageDigest,
+}
+impl EncryptoAdaptor for AesEncrypto {
+    fn padding(&self) -> Option<Padding> {
+        None
+    }
+
+    fn md(&self) -> Option<openssl::hash::MessageDigest> {
+        None
+    }
+
+    fn kits(&self) -> Option<Vec<Vec<u8>>> {
+        Some(vec![self.iv])
+    }
+}
+
+pub struct AesEncrypto {
+    iv: Vec<u8>,
 }

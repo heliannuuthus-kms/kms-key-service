@@ -1,19 +1,19 @@
 use lazy_static::lazy_static;
-use openssl::nid::Nid;
-use ring::aead::{AES_128_GCM, AES_256_GCM};
+use openssl::{cipher::Cipher, nid::Nid};
+use ring::aead::{self};
 
 use super::{
-    ec::ECAlgorithm,
+    aes::{AesCbcAlgorithm, AesGcmAlgorithm},
+    ec::EcAlgorithm,
     rsa::RsaAlgorithm,
-    symm::SymmAlgorithm,
-    types::{KeySpec, KeyType, KeyUsage, WrappingKeySpec},
+    types::{KeyAlgorithmFactory, KeySpec, KeyType, KeyUsage, WrappingKeySpec},
 };
-use crate::common::errors::{Result, ServiceError};
 
 lazy_static! {
     static ref RSA_ALGORITHM: RsaAlgorithm = RsaAlgorithm::default();
-    static ref EC_ALGORITHM: ECAlgorithm = ECAlgorithm::default();
-    static ref SYMM_ALGORITHM: SymmAlgorithm = SymmAlgorithm::default();
+    static ref EC_ALGORITHM: EcAlgorithm = EcAlgorithm::default();
+    static ref AES_CBC_ALGORITHM: AesCbcAlgorithm = AesCbcAlgorithm::default();
+    static ref AES_GCM_ALGORITHM: AesGcmAlgorithm = AesGcmAlgorithm::default();
 }
 
 pub struct KeyAlgorithmMeta {
@@ -23,68 +23,56 @@ pub struct KeyAlgorithmMeta {
     pub key_usage: Vec<KeyUsage>,
 }
 
-pub enum KeyAlgorithmFactory {
-    SYMM { factory: &'static SymmAlgorithm },
+pub enum KeyAlgorithmFactoryAdaptor {
+    SYMM { factory: &'static AesCbcAlgorithm },
     RSA { factory: &'static RsaAlgorithm },
-    EC { factory: &'static ECAlgorithm },
+    EC { factory: &'static EcAlgorithm },
 }
 
-pub struct KeyAlgorithm {
+pub struct KeyAlgorithm<T: KeyAlgorithmFactory + 'static> {
     pub meta: KeyAlgorithmMeta,
-    pub factory: KeyAlgorithmFactory,
-}
-
-impl KeyAlgorithmFactory {
-    pub fn generate(
-        &self,
-        meta: &KeyAlgorithmMeta,
-    ) -> Result<(Vec<u8>, Vec<u8>)> {
-        Ok(match self {
-            KeyAlgorithmFactory::SYMM { factory } => {
-                let key = factory.aes_generate(meta.key_size)?;
-                (key, vec![])
-            }
-            KeyAlgorithmFactory::RSA { factory } => {
-                factory.generate(meta.key_size)?
-            }
-            KeyAlgorithmFactory::EC { factory } => match meta.key_spec {
-                KeySpec::EcP256 => factory.genrate(Nid::X9_62_PRIME256V1)?,
-                KeySpec::EcP256K => factory.genrate(Nid::SECP256K1)?,
-                _ => {
-                    return Err(ServiceError::Unsupported(format!(
-                        "Unsupport ec key_spec: {:?}",
-                        meta.key_spec,
-                    )))
-                }
-            },
-        })
-    }
+    pub factory: &'static T,
 }
 
 lazy_static! {
-    pub static ref AES_128: KeyAlgorithm = KeyAlgorithm {
+    pub static ref AES_128_CBC: KeyAlgorithm<AesCbcAlgorithm> = KeyAlgorithm {
         meta: KeyAlgorithmMeta {
             key_type: KeyType::Symmetric,
-            key_size: AES_128_GCM.key_len(),
+            key_size: Cipher::aes_128_cbc().key_length(),
             key_spec: KeySpec::Aes128,
             key_usage: vec![KeyUsage::EncryptAndDecrypt],
         },
-        factory: KeyAlgorithmFactory::SYMM {
-            factory: &SYMM_ALGORITHM
-        }
+        factory: &AES_CBC_ALGORITHM
     };
-    pub static ref AES_256: KeyAlgorithm = KeyAlgorithm {
+    pub static ref AES_256_CBC: KeyAlgorithm<AesCbcAlgorithm> = KeyAlgorithm {
         meta: KeyAlgorithmMeta {
             key_type: KeyType::Symmetric,
-            key_size: AES_256_GCM.key_len(),
+            key_size: Cipher::aes_256_cbc().key_length(),
             key_spec: KeySpec::Aes256,
             key_usage: vec![KeyUsage::EncryptAndDecrypt],
         },
-        factory: KeyAlgorithmFactory::SYMM {
-            factory: &SYMM_ALGORITHM
-        }
+        factory: &AES_CBC_ALGORITHM
     };
-    pub static ref RSA_2048: KeyAlgorithm = KeyAlgorithm {
+    pub static ref AES_128_GCM: KeyAlgorithm<AesGcmAlgorithm> = KeyAlgorithm {
+        meta: KeyAlgorithmMeta {
+            key_type: KeyType::Symmetric,
+            key_size: Cipher::aes_128_gcm().key_length(),
+
+            key_spec: KeySpec::Aes128,
+            key_usage: vec![KeyUsage::EncryptAndDecrypt],
+        },
+        factory: &AES_GCM_ALGORITHM
+    };
+    pub static ref AES_256_GCM: KeyAlgorithm<AesGcmAlgorithm> = KeyAlgorithm {
+        meta: KeyAlgorithmMeta {
+            key_type: KeyType::Symmetric,
+            key_size: Cipher::aes_256_gcm().key_length(),
+            key_spec: KeySpec::Aes256,
+            key_usage: vec![KeyUsage::EncryptAndDecrypt],
+        },
+        factory: &AES_GCM_ALGORITHM
+    };
+    pub static ref RSA_2048: KeyAlgorithm<RsaAlgorithm> = KeyAlgorithm {
         meta: KeyAlgorithmMeta {
             key_type: KeyType::Asymmetric,
             key_size: 2048,
@@ -94,11 +82,9 @@ lazy_static! {
                 KeyUsage::SignAndVerify
             ],
         },
-        factory: KeyAlgorithmFactory::RSA {
-            factory: &RSA_ALGORITHM
-        }
+        factory: &RSA_ALGORITHM
     };
-    pub static ref RSA_3072: KeyAlgorithm = KeyAlgorithm {
+    pub static ref RSA_3072: KeyAlgorithm<RsaAlgorithm> = KeyAlgorithm {
         meta: KeyAlgorithmMeta {
             key_type: KeyType::Asymmetric,
             key_size: 3072,
@@ -108,33 +94,27 @@ lazy_static! {
                 KeyUsage::SignAndVerify
             ],
         },
-        factory: KeyAlgorithmFactory::RSA {
-            factory: &RSA_ALGORITHM
-        }
+        factory: &RSA_ALGORITHM
     };
-    pub static ref EC_P256: KeyAlgorithm = KeyAlgorithm {
+    pub static ref EC_P256: KeyAlgorithm<EcAlgorithm> = KeyAlgorithm {
         meta: KeyAlgorithmMeta {
             key_type: KeyType::Asymmetric,
             key_size: 256,
             key_spec: KeySpec::EcP256,
             key_usage: vec![KeyUsage::SignAndVerify],
         },
-        factory: KeyAlgorithmFactory::EC {
-            factory: &EC_ALGORITHM
-        }
+        factory: &EC_ALGORITHM
     };
-    pub static ref EC_P256K: KeyAlgorithm = KeyAlgorithm {
+    pub static ref EC_P256K: KeyAlgorithm<EcAlgorithm> = KeyAlgorithm {
         meta: KeyAlgorithmMeta {
             key_type: KeyType::Asymmetric,
             key_size: 256,
             key_spec: KeySpec::EcP256K,
             key_usage: vec![KeyUsage::SignAndVerify],
         },
-        factory: KeyAlgorithmFactory::EC {
-            factory: &EC_ALGORITHM
-        }
+        factory: &EC_ALGORITHM
     };
-    pub static ref EC_SM2: KeyAlgorithm = KeyAlgorithm {
+    pub static ref EC_SM2: KeyAlgorithm<EcAlgorithm> = KeyAlgorithm {
         meta: KeyAlgorithmMeta {
             key_type: KeyType::Asymmetric,
             key_size: 256,
@@ -144,16 +124,16 @@ lazy_static! {
                 KeyUsage::EncryptAndDecrypt
             ],
         },
-        factory: KeyAlgorithmFactory::EC {
-            factory: &EC_ALGORITHM
-        }
+        factory: &EC_ALGORITHM
     };
 }
 
-pub fn select_key_alg<'a>(spec: KeySpec) -> &'a KeyAlgorithm {
-    let key_alg: &KeyAlgorithm = match spec {
-        KeySpec::Aes128 => &AES_128,
-        KeySpec::Aes256 => &AES_256,
+pub fn select_key_alg<'a, T: KeyAlgorithmFactory>(
+    spec: KeySpec,
+) -> &'a KeyAlgorithm<T> {
+    let key_alg: &KeyAlgorithm<T> = match spec {
+        KeySpec::Aes128 => &AES_128_GCM,
+        KeySpec::Aes256 => &AES_256_GCM,
         KeySpec::Rsa2048 => &RSA_2048,
         KeySpec::Rsa3072 => &RSA_3072,
         KeySpec::EcP256 => &EC_P256,
@@ -162,7 +142,9 @@ pub fn select_key_alg<'a>(spec: KeySpec) -> &'a KeyAlgorithm {
     key_alg
 }
 
-pub fn select_wrapping_key_alg<'a>(spec: WrappingKeySpec) -> &'a KeyAlgorithm {
+pub fn select_wrapping_key_alg<'a, T: KeyAlgorithmFactory>(
+    spec: WrappingKeySpec,
+) -> &'a KeyAlgorithm<T> {
     let key_alg: &KeyAlgorithm = match spec {
         WrappingKeySpec::Rsa2048 => &RSA_2048,
         WrappingKeySpec::EcSm2 => &EC_SM2,

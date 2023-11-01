@@ -10,6 +10,7 @@ use crate::common::encrypto::types::{
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
 pub struct KeyCreateForm {
     pub kms_id: String,
+    pub description: Option<String>,
     #[serde(rename = "key_usage")]
     pub usage: KeyUsage,
     pub origin: KeyOrigin,
@@ -31,8 +32,8 @@ pub struct KeyImportParamsQuery {
 #[derive(Serialize, Deserialize, ToSchema, Clone)]
 pub struct KeyImportForm {
     pub key_id: String,
-    pub encrypted_secret_material: String,
+    pub encrypted_key_material: String,
     pub import_token: String,
     #[serde_as(as = "Option<DurationSeconds<i64>>")]
-    pub secret_material_expire_in: Option<Duration>,
+    pub key_material_expire_in: Option<Duration>,
 }

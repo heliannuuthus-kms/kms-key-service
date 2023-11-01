@@ -8,7 +8,10 @@ use crate::{
         encrypto,
         errors::{Result, ServiceError},
     },
-    pojo::form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
+    pojo::form::{
+        self,
+        key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
+    },
     service::key_service,
     States,
 };
@@ -30,13 +33,7 @@ pub async fn create_key(
 ) -> Result<impl IntoResponse> {
     tracing::info!("create master key, data: {:?}", form);
 
-    let key_alg = encrypto::algorithm::select_key_alg(form.spec);
-    if !key_alg.meta.key_usage.contains(&form.usage) {
-        return Err(ServiceError::BadRequest(format!(
-            "unsupported key usage({:?})",
-            form.usage
-        )));
-    }
+   
 
     key_service::create_key(&db, key_alg, &form)
         .await
@@ -77,7 +74,7 @@ pub async fn import_key_params(
 )]
 pub async fn import_key(
     State(_state): State<States>,
-    Json(_form): Json<KeyImportForm>,
+    Json(form): Json<KeyImportForm>,
 ) -> Result<impl IntoResponse> {
     Ok((StatusCode::OK, axum::Json(json!({"key_id": ""}))).into_response())
 }

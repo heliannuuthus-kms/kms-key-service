@@ -7,13 +7,16 @@ use openssl::{
     pkey, sign,
 };
 
+use super::types::{EncryptoAdaptor, KeyAlgorithmFactory};
 use crate::common::errors::Result;
 
 #[derive(Default)]
-pub struct ECAlgorithm {}
+pub struct EcAlgorithm {}
 
-impl ECAlgorithm {
-    pub fn genrate(&self, nid: Nid) -> Result<(Vec<u8>, Vec<u8>)> {
+impl KeyAlgorithmFactory for EcAlgorithm {
+    type GenrateBasic = Nid;
+
+    fn generate(&self, nid: Nid) -> Result<(Vec<u8>, Vec<u8>)> {
         let ec_group = ec::EcGroup::from_curve_name(nid).context(format!(
             "ec group create failed, curve_name: {:?}",
             nid
@@ -32,7 +35,7 @@ impl ECAlgorithm {
         ))
     }
 
-    pub fn derive(&self, private_key: &[u8]) -> Result<Vec<u8>> {
+    fn derive(&self, private_key: &[u8]) -> Result<Vec<u8>> {
         let ec_key_pair = ec::EcKey::private_key_from_der(private_key)
             .context("import ec private key failed")?;
 
@@ -41,17 +44,17 @@ impl ECAlgorithm {
             .context("export ec public key failed")?)
     }
 
-    pub fn sign(
+    fn sign<T: EncryptoAdaptor>(
         &self,
         pri_key: &[u8],
         plaintext: &[u8],
-        message_digest: hash::MessageDigest,
+        e: T,
     ) -> Result<Vec<u8>> {
         let ec_key_pair = ec::EcKey::private_key_from_der(pri_key)
             .context("import ec private key failed")?;
         let pkey = pkey::PKey::from_ec_key(ec_key_pair)
             .context("ec private key tansform to pkey failed")?;
-        let mut signer = sign::Signer::new(message_digest, &pkey)
+        let mut signer = sign::Signer::new(e.md().unwrap(), &pkey)
             .context("pkey tansform to signer failed")?;
         signer
             .update(plaintext)
@@ -60,17 +63,17 @@ impl ECAlgorithm {
         Ok(signer.sign_to_vec().context("ec signer sign failed")?)
     }
 
-    pub fn verify(
+    fn verify<T: EncryptoAdaptor>(
         &self,
         pub_key: &[u8],
         plaintext: &[u8],
         signature: &[u8],
-        message_digest: hash::MessageDigest,
+        e: T,
     ) -> Result<bool> {
         let ec_key_pair = ec::EcKey::public_key_from_der(pub_key)
             .context("import ec public key failed")?;
         let pkey = pkey::PKey::from_ec_key(ec_key_pair).context("import")?;
-        let mut verifier = sign::Verifier::new(message_digest, &pkey)
+        let mut verifier = sign::Verifier::new(e.md().unwrap(), &pkey)
             .context("pkey tansform to ec verifer failed")?;
         verifier
             .update(plaintext)
@@ -80,7 +83,12 @@ impl ECAlgorithm {
             .context("ec verifier veirify failed")?)
     }
 
-    pub fn encrypt(&self, pub_key: &[u8], plaintext: &[u8]) -> Result<Vec<u8>> {
+    fn encrypt<T: EncryptoAdaptor>(
+        &self,
+        pub_key: &[u8],
+        plaintext: &[u8],
+        e: T,
+    ) -> Result<Vec<u8>> {
         let ec_key_pair = ec::EcKey::public_key_from_der(pub_key)
             .context("import ec public key failed")?;
         let pkey_encrypter = pkey::PKey::from_ec_key(ec_key_pair.clone())
@@ -99,10 +107,11 @@ impl ECAlgorithm {
         Ok(to)
     }
 
-    pub fn decrypt(
+    fn decrypt<T: EncryptoAdaptor>(
         &self,
         private_key: &[u8],
         plaintext: &[u8],
+        e: T,
     ) -> Result<Vec<u8>> {
         let ec_key_pair = ec::EcKey::private_key_from_der(private_key)
             .context("import ec private key failed")?;

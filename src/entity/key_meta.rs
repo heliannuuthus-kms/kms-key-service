@@ -27,6 +27,7 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub description: Option<String>,
     pub version: String,
+    pub primary_version: String,
     pub state: KeyState,
     pub usage: KeyUsage,
     pub rotation_interval: i64,
