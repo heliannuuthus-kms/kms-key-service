@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use chrono::Duration;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
@@ -13,6 +15,7 @@ pub struct KeyCreateForm {
     pub description: Option<String>,
     #[serde(rename = "key_usage")]
     pub usage: KeyUsage,
+    #[serde(rename = "key_origin")]
     pub origin: KeyOrigin,
     #[serde(rename = "key_spec")]
     pub spec: KeySpec,
@@ -36,4 +39,14 @@ pub struct KeyImportForm {
     pub import_token: String,
     #[serde_as(as = "Option<DurationSeconds<i64>>")]
     pub key_material_expire_in: Option<Duration>,
+}
+
+impl Debug for KeyImportForm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("KeyImportForm")
+            .field("key_id", &self.key_id)
+            .field("import_token", &self.import_token)
+            .field("key_material_expire_in", &self.key_material_expire_in)
+            .finish()
+    }
 }

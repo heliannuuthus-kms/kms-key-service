@@ -2,8 +2,10 @@ use utoipa::OpenApi;
 
 use crate::{
     common::encrypto::types::{
-        KeyOrigin, KeySpec, KeyUsage, WrappingKeyAlgorithm, WrappingKeySpec,
+        KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage, WrappingKeyAlgorithm,
+        WrappingKeySpec,
     },
+    entity::{self},
     pojo::{
         form::{
             key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
@@ -22,6 +24,7 @@ pub mod kms_controller;
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
+        entity::kms::Model,
         KmsResult,
         KmsCreateForm,
         KmsUpdateForm,
@@ -33,6 +36,8 @@ pub mod kms_controller;
         KeyUsage,
         KeyOrigin,
         KeySpec,
+        KeyState,
+        KeyType,
         WrappingKeyAlgorithm,
         WrappingKeySpec
     )),

@@ -1,11 +1,33 @@
-use std::{self, ffi::c_int, option::Option};
+use std::{self, option::Option};
 
-use openssl::rsa::Padding;
+use openssl::{cipher::Cipher, nid::Nid};
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::common::errors::{Result, ServiceError};
+#[derive(Deserialize, Serialize, Clone, PartialEq, Eq, Debug, Copy)]
+pub enum KeyAlgorithm {
+    #[serde(rename = "AES_128_CBC")]
+    Aes128Cbc,
+    #[serde(rename = "AES_256_CBC")]
+    Aes256Cbc,
+    #[serde(rename = "AES_128_GCM")]
+    Aes128Gcm,
+    #[serde(rename = "AES_128_GCM")]
+    Aes256Gcm,
+    #[serde(rename = "RSA_2048")]
+    Rsa2048,
+    #[serde(rename = "RSA_3072")]
+    Rsa3072,
+    #[serde(rename = "SM2")]
+    SM2,
+    #[serde(rename = "SM4")]
+    SM4,
+    #[serde(rename = "EC_P256K")]
+    EcP256k,
+    #[serde(rename = "EC_P256")]
+    EcP256,
+}
 
 #[derive(
     Deserialize,
@@ -43,8 +65,10 @@ pub enum KeyUsage {
     Eq,
     Default,
     Copy,
+    ToSchema,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "key_type")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum KeyType {
     #[sea_orm(string_value = "SYMMETRIC")]
     Symmetric,
@@ -69,7 +93,7 @@ pub enum KeyType {
     DeriveActiveEnum,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "usage")]
-#[serde(rename = "snake_case")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum KeyOrigin {
     #[default]
     #[sea_orm(string_value = "KMS")]
@@ -114,6 +138,23 @@ pub enum KeySpec {
     EcP256K,
 }
 
+impl From<KeySpec> for (Nid, usize) {
+    fn from(value: KeySpec) -> Self {
+        match value {
+            KeySpec::Aes128 => {
+                (Nid::AES_128_GCM, Cipher::aes_128_gcm().key_length())
+            }
+            KeySpec::Aes256 => {
+                (Nid::AES_256_GCM, Cipher::aes_256_gcm().key_length())
+            }
+            KeySpec::Rsa2048 => (Nid::RSA, 256),
+            KeySpec::Rsa3072 => (Nid::RSA, 384),
+            KeySpec::EcP256 => (Nid::X9_62_PRIME256V1, 256),
+            KeySpec::EcP256K => (Nid::SECP256K1, 256),
+        }
+    }
+}
+
 // 主密钥的状态
 #[derive(
     Deserialize,
@@ -126,8 +167,10 @@ pub enum KeySpec {
     Default,
     Copy,
     Debug,
+    ToSchema,
 )]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "state")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum KeyState {
     #[default]
     #[sea_orm(string_value = "ENABLE")]
@@ -141,8 +184,8 @@ pub enum KeyState {
     #[sea_orm(string_value = "PENDING_DELETION")]
     PendingDeletion,
     // 待删除的密钥，
-    #[sea_orm(string_value = "IMPORT_DELETION")]
-    Pendingimport, // 待导入的密钥
+    #[sea_orm(string_value = "PENDING_IMPORT")]
+    PendingImport, // 待导入的密钥
 }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq, Default)]
@@ -187,94 +230,11 @@ pub enum WrappingKeySpec {
     EcSm2,
 }
 
-pub trait KeyAlgorithmFactory {
-    type GenrateBasic;
-    fn generate(&self, basic: Self::GenrateBasic)
-        -> Result<(Vec<u8>, Vec<u8>)>;
-    fn derive(&self, private_key: &[u8]) -> Result<Vec<u8>>;
-    fn sign<T: EncryptoAdaptor>(
-        &self,
-        pri_key: &[u8],
-        plaintext: &[u8],
-        e: T,
-    ) -> Result<Vec<u8>>;
-    fn verify<T: EncryptoAdaptor>(
-        &self,
-        pub_key: &[u8],
-        plaintext: &[u8],
-        signature: &[u8],
-        e: T,
-    ) -> Result<bool>;
-    fn encrypt<T: EncryptoAdaptor>(
-        &self,
-        pub_key: &[u8],
-        plaintext: &[u8],
-        e: T,
-    ) -> Result<Vec<u8>>;
-    fn decrypt<T: EncryptoAdaptor>(
-        &self,
-        private_key: &[u8],
-        plaintext: &[u8],
-        e: T,
-    ) -> Result<Vec<u8>>;
-}
-
-pub trait EncryptoAdaptor {
-    fn padding(&self) -> Option<openssl::rsa::Padding>;
-    fn kits(&self) -> Option<Vec<Vec<u8>>>;
-    fn md(&self) -> Option<openssl::hash::MessageDigest>;
-}
-
-pub struct RsaEncrypto {
-    padding: Padding,
-    md: openssl::hash::MessageDigest,
-}
-
-impl EncryptoAdaptor for RsaEncrypto {
-    fn padding(&self) -> Option<openssl::rsa::Padding> {
-        Some(self.padding)
+impl From<WrappingKeySpec> for (Nid, usize) {
+    fn from(value: WrappingKeySpec) -> Self {
+        match value {
+            WrappingKeySpec::Rsa2048 => (Nid::RSA, 256),
+            WrappingKeySpec::EcSm2 => (Nid::SM2, 256),
+        }
     }
-
-    fn kits(&self) -> Option<Vec<Vec<u8>>> {
-        None
-    }
-
-    fn md(&self) -> Option<openssl::hash::MessageDigest> {
-        Some(self.md)
-    }
-}
-
-impl EncryptoAdaptor for EcEncrypto {
-    fn padding(&self) -> Option<openssl::rsa::Padding> {
-        None
-    }
-
-    fn kits(&self) -> Option<Vec<Vec<u8>>> {
-        None
-    }
-
-    fn md(&self) -> Option<openssl::hash::MessageDigest> {
-        Some(self.md)
-    }
-}
-
-pub struct EcEncrypto {
-    md: openssl::hash::MessageDigest,
-}
-impl EncryptoAdaptor for AesEncrypto {
-    fn padding(&self) -> Option<Padding> {
-        None
-    }
-
-    fn md(&self) -> Option<openssl::hash::MessageDigest> {
-        None
-    }
-
-    fn kits(&self) -> Option<Vec<Vec<u8>>> {
-        Some(vec![self.iv])
-    }
-}
-
-pub struct AesEncrypto {
-    iv: Vec<u8>,
 }

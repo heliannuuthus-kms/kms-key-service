@@ -57,7 +57,6 @@ async fn main() {
         )
         .route("/openapi/doc", get(move || async { api_doc }))
         .with_state(state);
-
     axum::serve(
         tokio::net::TcpListener::bind(format!(
             "{}:{}",

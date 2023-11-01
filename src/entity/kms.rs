@@ -16,6 +16,7 @@ use utoipa::ToSchema;
     ToSchema,
 )]
 #[sea_orm(table_name = "t_kms")]
+#[schema(as = entity::kms::Model)]
 pub struct Model {
     #[sea_orm(column_name = "_id", primary_key)]
     #[serde(skip)]

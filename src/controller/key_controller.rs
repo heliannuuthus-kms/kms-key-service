@@ -5,13 +5,9 @@ use serde_json::json;
 use crate::{
     common::{
         axum::{Json, Query},
-        encrypto,
-        errors::{Result, ServiceError},
+        errors::Result,
     },
-    pojo::form::{
-        self,
-        key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
-    },
+    pojo::form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
     service::key_service,
     States,
 };
@@ -22,7 +18,7 @@ use crate::{
     operation_id = "创建密钥",
     context_path= "/keys",
     responses(
-        (status = 200, description = "密钥标识",example = json!({"key_id": "key_id"}),body = String, content_type="application/json"),
+        (status = 200, description = "密钥标识", body = KeyCreateResult, content_type="application/json"),
         (status = 400, description = "illegal params")
     ),
     request_body = KeyCreateForm
@@ -33,11 +29,7 @@ pub async fn create_key(
 ) -> Result<impl IntoResponse> {
     tracing::info!("create master key, data: {:?}", form);
 
-   
-
-    key_service::create_key(&db, key_alg, &form)
-        .await
-        .map(axum::Json)
+    key_service::create_key(&db, &form).await.map(axum::Json)
 }
 
 #[utoipa::path(
@@ -72,11 +64,15 @@ pub async fn import_key_params(
         (status = 400, description = "illegal params")
     ),
 )]
+#[axum::debug_handler]
 pub async fn import_key(
-    State(_state): State<States>,
+    State(States { db, rd }): State<States>,
     Json(form): Json<KeyImportForm>,
 ) -> Result<impl IntoResponse> {
-    Ok((StatusCode::OK, axum::Json(json!({"key_id": ""}))).into_response())
+    tracing::info!("import key material, data: {:?}", form);
+    key_service::import_key_material(&db, &rd, &form).await?;
+    Ok((StatusCode::OK, axum::Json(json!({"key_id": form.key_id})))
+        .into_response())
 }
 
 #[utoipa::path(

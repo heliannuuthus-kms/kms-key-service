@@ -18,18 +18,18 @@ pub async fn init() -> Result<RdConn> {
     })?)
 }
 
-pub async fn borrow(client: &Client) -> Result<Connection> {
-    Ok(client.get_async_connection().await.with_context(|| {
+pub async fn borrow(rd: &Client) -> Result<Connection> {
+    Ok(rd.get_async_connection().await.with_context(|| {
         tracing::error!("borrow redis connection failed");
         "borrow redis connection failed"
     })?)
 }
 
-pub async fn redis_set<T>(client: &Client, key: &str, value: T) -> Result<()>
+pub async fn redis_set<T>(rd: &Client, key: &str, value: T) -> Result<()>
 where
     T: serde::Serialize,
 {
-    let mut conn = borrow(client).await?;
+    let mut conn = borrow(rd).await?;
 
     redis::cmd("SET")
         .arg(key)
@@ -44,11 +44,11 @@ where
     Ok(())
 }
 
-pub async fn redis_get<T>(client: &Client, key: &str) -> Result<Option<T>>
+pub async fn redis_get<T>(rd: &Client, key: &str) -> Result<Option<T>>
 where
     T: serde::de::DeserializeOwned,
 {
-    let mut conn = borrow(client).await?;
+    let mut conn = borrow(rd).await?;
     let value: Option<String> = redis::cmd("GET")
         .arg(key)
         .query_async(&mut conn)
@@ -64,7 +64,7 @@ where
 }
 
 pub async fn redis_setex<T>(
-    client: &Client,
+    rd: &Client,
     key: &str,
     value: T,
     expires_in: Duration,
@@ -72,7 +72,7 @@ pub async fn redis_setex<T>(
 where
     T: serde::Serialize,
 {
-    let mut conn = borrow(client).await?;
+    let mut conn = borrow(rd).await?;
     redis::cmd("SETEX")
         .arg(key)
         .arg(expires_in.num_seconds())

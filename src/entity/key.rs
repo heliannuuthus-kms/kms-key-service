@@ -4,11 +4,19 @@ use std::fmt::Debug;
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::common::encrypto::types::KeyType;
 
 #[derive(
-    Clone, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, Default,
+    Clone,
+    PartialEq,
+    DeriveEntityModel,
+    Eq,
+    Serialize,
+    Deserialize,
+    Default,
+    ToSchema,
 )]
 #[sea_orm(table_name = "t_key")]
 pub struct Model {
