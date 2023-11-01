@@ -26,16 +26,6 @@ pub async fn insert_key_meta<C: ConnectionTrait>(
     Ok(())
 }
 
-pub async fn select_kms_keys<C: ConnectionTrait>(
-    db: &C,
-    kms_id: &str,
-) -> Result<Vec<entity::key::Model>> {
-    Ok(Key::find()
-        .filter(entity::key::Column::KmsId.eq(kms_id))
-        .all(db)
-        .await?)
-}
-
 pub async fn select_kms_key_ids<C: ConnectionTrait>(
     db: &C,
     kms_id: &str,
@@ -58,27 +48,12 @@ pub async fn select_key<C: ConnectionTrait>(
         .await?)
 }
 
-pub async fn select_version_key<C: ConnectionTrait>(
+pub async fn select_key_metas<C: ConnectionTrait>(
     db: &C,
     key_id: &str,
-    version: &str,
-) -> Result<Option<entity::key::Model>> {
-    Ok(Key::find()
-        .filter(
-            entity::key::Column::KeyId
-                .eq(key_id)
-                .and(entity::key::Column::Version.eq(version)),
-        )
-        .one(db)
-        .await?)
-}
-
-pub async fn select_key_meta<C: ConnectionTrait>(
-    db: &C,
-    key_id: &str,
-) -> Result<Option<entity::key_meta::Model>> {
+) -> Result<Vec<entity::key_meta::Model>> {
     Ok(KeyMeta::find()
         .filter(entity::key_meta::Column::KeyId.eq(key_id))
-        .one(db)
+        .all(db)
         .await?)
 }

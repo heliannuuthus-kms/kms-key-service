@@ -22,6 +22,7 @@ pub struct KeyCreateResult {
     pub key_usage: KeyUsage,
     #[serde(rename = "state")]
     pub key_state: KeyState,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub expired_at: Option<DateTime<FixedOffset>>,
 }
 
@@ -32,7 +33,7 @@ pub struct KeyMaterialImportParamsResult {
     pub token: String,
     #[serde(rename = "public_key")]
     pub pub_key: String,
-    #[serde(rename = "private_key")]
+    #[serde(rename = "private_key", skip_serializing_if = "String::is_empty")]
     pub pri_key: String,
     #[serde_as(as = "DurationSeconds<String>")]
     pub expires_in: Duration,

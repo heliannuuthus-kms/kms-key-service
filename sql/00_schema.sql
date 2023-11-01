@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS t_key (
   updated_at DATETIME NOT NULL DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP,
   created_at DATETIME NOT NULL DEFAULT NOW(),
   PRIMARY KEY(_id),
-  UNIQUE uniq_key_id(key_id),
+  INDEX idx_key_id(key_id),
   UNIQUE uniq_key_id_version(key_id, `version`),
   INDEX idx_kms_id(kms_id)
 );
@@ -52,5 +52,6 @@ CREATE TABLE IF NOT EXISTS t_key_meta (
   updated_at DATETIME NOT NULL DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP,
   created_at DATETIME NOT NULL DEFAULT NOW(),
   PRIMARY KEY(_id),
-  UNIQUE uniq_key_id(key_id)
+  INDEX idx_key_id(key_id),
+  UNIQUE uniq_key_id_version(key_id, `version`)
 );

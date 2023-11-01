@@ -1,13 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
 use chrono::{Duration, Local};
-use itertools::Itertools;
 use lazy_static::lazy_static;
 use moka::future::Cache;
 use sea_orm::*;
 use serde_json::json;
 
-use super::kms_service;
+use super::{key_meta_service, kms_service};
 use crate::{
     common::{
         cache::{redis_setex, RdConn},
@@ -49,20 +48,14 @@ lazy_static! {
 
 pub async fn create_key(
     db: &DbConn,
+    key_alg: &encrypto::algorithm::KeyAlgorithm,
     data: &KeyCreateForm,
 ) -> Result<KeyCreateResult> {
     let kms_id = &data.kms_id;
-    let _kms_instance = kms_service::get_kms(db, kms_id).await?;
+
+    kms_service::get_kms(db, kms_id).await?;
 
     let key_id = &utils::generate_b62(32)?;
-
-    let key_alg = encrypto::algorithm::select_key_alg(data.spec);
-    if !key_alg.meta.key_usage.contains(&data.usage) {
-        return Err(ServiceError::BadRequest(format!(
-            "unsupported key usage({:?})",
-            data.usage
-        )));
-    }
 
     let mut key = entity::key::Model {
         key_id: key_id.to_owned(),
@@ -83,7 +76,7 @@ pub async fn create_key(
     let mut result = KeyCreateResult {
         kms_id: kms_id.to_owned(),
         key_id: key_id.to_owned(),
-        key_type: key.key_type,
+        key_type: key_alg.meta.key_type,
         key_spec: key_meta.spec,
         key_usage: key_meta.usage,
         key_origin: key_meta.origin,
@@ -117,7 +110,6 @@ pub async fn create_key(
     } else {
         key_meta.state = KeyState::Pendingimport;
         result.key_state = key_meta.state
-        // 存入缓存
     };
 
     tracing::info!(
@@ -126,11 +118,23 @@ pub async fn create_key(
         key.key_id,
         key.version
     );
-
-    key_repository::insert_key(db, &key).await?;
-    key_repository::insert_key_meta(db, &key_meta).await?;
+    save_key(db, &key).await?;
+    key_meta_service::save_key_meta(db, &key_meta).await?;
 
     Ok(result)
+}
+
+pub async fn save_key(db: &DbConn, model: &entity::key::Model) -> Result<()> {
+    key_repository::insert_key(db, model).await?;
+
+    KEY_INDEX_CACHE
+        .remove(&format!("kms:keys:key_index:{}", model.kms_id))
+        .await;
+    KEY_VERSION_CACHE
+        .remove(&format!("kms:keys:key_version:{}", model.key_id))
+        .await;
+
+    Ok(())
 }
 
 pub async fn generate_key_import_params(
@@ -141,8 +145,6 @@ pub async fn generate_key_import_params(
     let key_id = &form.key_id;
 
     let keys = get_keys(db, key_id).await?;
-
-    tracing::debug!("get keys: {:?}", keys);
 
     if keys.is_empty() {
         return Err(ServiceError::NotFount(format!(
@@ -180,26 +182,15 @@ pub async fn get_version_key(
     key_id: &str,
     version: &str,
 ) -> Result<entity::key::Model> {
-    let mut key_version_keys = get_keys(db, key_id).await?;
+    let key_version_keys = get_keys(db, key_id).await?;
 
-    Ok(if let Some(model) = key_version_keys.get(version) {
-        model.clone()
-    } else {
-        let model = key_repository::select_version_key(db, key_id, version)
-            .await?
-            .ok_or(ServiceError::NotFount(format!(
-                "key version is nonexistant, key_id: {}, version: {}",
-                key_id, version
-            )))?;
-        key_version_keys.insert(model.version.to_owned(), model.clone());
-        KEY_VERSION_CACHE
-            .insert(
-                format!("kms:keys:key_version:{}", key_id),
-                key_version_keys,
-            )
-            .await;
-        model
-    })
+    Ok(key_version_keys
+        .get(version)
+        .ok_or(ServiceError::NotFount(format!(
+            "key_id is invalid, key_id: {}",
+            key_id
+        )))?
+        .clone())
 }
 
 pub async fn get_keys(
@@ -248,7 +239,7 @@ pub async fn get_kms_keys(
 
     let mut kms_keys: HashMap<String, Vec<entity::key::Model>> = HashMap::new();
     for key_id in cached_keys.iter() {
-        let keys = get_keys(db, &key_id).await?;
+        let keys = get_keys(db, key_id).await?;
         kms_keys.insert(
             key_id.to_owned(),
             keys.into_values().collect::<Vec<entity::key::Model>>(),

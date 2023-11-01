@@ -5,7 +5,8 @@ use serde_json::json;
 use crate::{
     common::{
         axum::{Json, Query},
-        errors::Result,
+        encrypto,
+        errors::{Result, ServiceError},
     },
     pojo::form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
     service::key_service,
@@ -28,7 +29,18 @@ pub async fn create_key(
     Json(form): Json<KeyCreateForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create master key, data: {:?}", form);
-    key_service::create_key(&db, &form).await.map(axum::Json)
+
+    let key_alg = encrypto::algorithm::select_key_alg(form.spec);
+    if !key_alg.meta.key_usage.contains(&form.usage) {
+        return Err(ServiceError::BadRequest(format!(
+            "unsupported key usage({:?})",
+            form.usage
+        )));
+    }
+
+    key_service::create_key(&db, key_alg, &form)
+        .await
+        .map(axum::Json)
 }
 
 #[utoipa::path(
