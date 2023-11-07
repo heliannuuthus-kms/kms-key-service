@@ -27,7 +27,7 @@ tracing-subscriber = "0.3"
 tracing-appender = "0.2"
 
 serde_with = { version = "3.3.0", features = ["json", "chrono_0_4"] }
-sea-orm = { version = "0.12", features = [
+sea-orm = { version = "0.12.4", features = [
   "sqlx-mysql",
   "runtime-tokio-rustls",
   "with-chrono",
