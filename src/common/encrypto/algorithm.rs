@@ -15,6 +15,9 @@ use crate::common::{
     utils,
 };
 
+pub const SUPPORTED_EXTERNAL_SPEC: &[KeySpec] =
+    &[KeySpec::Aes128, KeySpec::Aes256];
+
 pub trait KeyAlgorithmFactory {
     fn sign(
         &self,

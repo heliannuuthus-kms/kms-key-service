@@ -93,9 +93,10 @@ impl KeyAlgorithmFactory for RsaAlgorithmFactory {
                 .encrypt_len(plaintext)
                 .context("compute rsa encrpt size failed")?
         ];
-        encrypter
+        let encrypt_len = encrypter
             .encrypt(plaintext, &mut to)
             .context("rsa encrypter encrypt failed")?;
+        to.truncate(encrypt_len);
         Ok(to)
     }
 
@@ -131,9 +132,10 @@ impl KeyAlgorithmFactory for RsaAlgorithmFactory {
                 .decrypt_len(cipher)
                 .context("compute rsa decrypt size failed")?
         ];
-        decrypter
+        let decrypt_len = decrypter
             .decrypt(cipher, &mut to)
             .context("rsa decrypter decrypt failed")?;
+        to.truncate(decrypt_len);
         Ok(to)
     }
 }

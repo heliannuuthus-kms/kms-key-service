@@ -25,25 +25,6 @@ pub async fn borrow(rd: &Client) -> Result<Connection> {
     })?)
 }
 
-pub async fn redis_set<T>(rd: &Client, key: &str, value: T) -> Result<()>
-where
-    T: serde::Serialize,
-{
-    let mut conn = borrow(rd).await?;
-
-    redis::cmd("SET")
-        .arg(key)
-        .arg(serde_json::to_string(&value).context(format!(
-            "redis execute SET serialized failed: {} ",
-            key
-        ))?)
-        .query_async(&mut conn)
-        .await
-        .context(format!("redis SET value failed: {}", key))?;
-
-    Ok(())
-}
-
 pub async fn redis_get<T>(rd: &Client, key: &str) -> Result<Option<T>>
 where
     T: serde::de::DeserializeOwned,

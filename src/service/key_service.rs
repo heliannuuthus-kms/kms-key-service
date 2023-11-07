@@ -130,6 +130,13 @@ pub async fn create_key(
             })
         });
     } else {
+        if !algorithm::SUPPORTED_EXTERNAL_SPEC.contains(&data.spec) {
+            return Err(ServiceError::Unsupported(format!(
+                "external marterial spec is not supported: {:?}",
+                data.spec,
+            )));
+        }
+
         key_meta.state = KeyState::PendingImport;
         result.key_state = key_meta.state
     };
@@ -245,19 +252,25 @@ pub async fn import_key_material(
         material_data.wrapping_algorithm.into(),
     )?;
 
-    let key_pair =
-        String::from_utf8(private_key.to_owned()).map_err(|err| {
-            ServiceError::BadRequest(format!(
-                "imported key is invalid string, err: {}",
-                err
-            ))
-        })?;
+    tracing::info!("print keys: {:?}", private_key);
 
     let key_model: KeyModel = get_main_key(db, key_id).await?;
 
     let key_meta_model =
         key_meta_service::get_version_key_meta(db, key_id, &key_model.version)
             .await?;
+
+    let meta = algorithm::select_meta(key_meta_model.spec);
+
+    let key_pair = utils::encode64(&private_key);
+
+    if meta.key_size != private_key.len() {
+        return Err(ServiceError::BadRequest(format!(
+            "key length is invalid, expect: {}, actul: {}",
+            meta.key_size,
+            private_key.len()
+        )));
+    }
 
     let mut key_active_model = key_model.clone().into_active_model();
 
