@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context};
 use base64::{
-    engine::general_purpose::{STANDARD_NO_PAD, URL_SAFE_NO_PAD},
+    engine::general_purpose::{STANDARD, URL_SAFE},
     Engine,
 };
 use ring::rand::{SecureRandom, SystemRandom};
@@ -31,6 +31,10 @@ pub fn generate_key(size: usize) -> Result<Vec<u8>> {
     Ok(dest)
 }
 
+pub fn uuid() -> String {
+    uuid::Uuid::new_v4().as_simple().to_string()
+}
+
 pub fn encode62(source: &[u8]) -> String {
     let base: usize = BASE62_CHARSETS.len();
     let mut result = String::new();
@@ -41,21 +45,21 @@ pub fn encode62(source: &[u8]) -> String {
 }
 
 pub fn encode64(source: &[u8]) -> String {
-    STANDARD_NO_PAD.encode(source)
+    STANDARD.encode(source)
 }
 
 pub fn decode64(source: &str) -> Result<Vec<u8>> {
-    Ok(STANDARD_NO_PAD
+    Ok(STANDARD
         .decode(source)
         .context("base64url decode failed".to_string())?)
 }
 
 pub fn encode64url(source: &[u8]) -> String {
-    URL_SAFE_NO_PAD.encode(source)
+    URL_SAFE.encode(source)
 }
 
 pub fn decode64url(source: &str) -> Result<Vec<u8>> {
-    Ok(URL_SAFE_NO_PAD
+    Ok(URL_SAFE
         .decode(source)
         .context("base64url decode failed".to_string())?)
 }

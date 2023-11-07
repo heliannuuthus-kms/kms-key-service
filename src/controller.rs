@@ -1,52 +1,55 @@
 use utoipa::OpenApi;
 
 use crate::{
-    common::secrets::types::{
-        KeyOrigin, KeySpec, KeyUsage, WrappingKeyAlgorithm, WrappingKeySpec,
+    common::encrypto::types::{
+        KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage, WrappingKeyAlgorithm,
+        WrappingKeySpec,
     },
+    entity::{self},
     pojo::{
         form::{
-            kms::{KmsAkskUpdateForm, KmsCreateForm, KmsUpdateForm},
-            secret::{
-                SecretCreateForm, SecretImportForm, SecretImportParamsQuery,
-            },
+            key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
+            kms::{KmsCreateForm, KmsUpdateForm},
         },
         result::{
-            kms::KmsAkskResult, secret::SecretMaterialImportParamsResult,
+            key::{KeyCreateResult, KeyMaterialImportParamsResult},
+            kms::KmsResult,
         },
     },
 };
 
+pub mod key_controller;
 pub mod kms_controller;
-pub mod secret_controller;
 
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
-        SecretCreateForm,
-        SecretImportParamsQuery,
-        SecretImportForm,
-        SecretMaterialImportParamsResult,
+        entity::kms::Model,
+        KmsResult,
         KmsCreateForm,
         KmsUpdateForm,
-        KmsAkskUpdateForm,
-        KmsAkskResult,
+        KeyCreateForm,
+        KeyImportParamsQuery,
+        KeyImportForm,
+        KeyCreateResult,
+        KeyMaterialImportParamsResult,
         KeyUsage,
         KeyOrigin,
         KeySpec,
+        KeyState,
+        KeyType,
         WrappingKeyAlgorithm,
         WrappingKeySpec
     )),
     paths(
-        secret_controller::create_secret,
-        secret_controller::import_secret,
-        secret_controller::import_secret_params,
-        secret_controller::set_secret_meta,
+        key_controller::create_key,
+        key_controller::import_key,
+        key_controller::import_key_params,
+        key_controller::set_key_meta,
         kms_controller::create_kms,
         kms_controller::set_kms,
         kms_controller::get_kms,
         kms_controller::destroy_kms,
-        kms_controller::rotate_kms_aksk,
     )
 )]
 pub struct ApiDoc {}

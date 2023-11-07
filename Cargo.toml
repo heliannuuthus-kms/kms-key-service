@@ -1,35 +1,33 @@
 [package]
-name = "kms-secret-service"
+name = "kms-key-service"
 version = "0.1.0"
 edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[patch.crates-io]
+axum = { git = "https://github.com/tokio-rs/axum" }
 [profile.release]
 debug = true
 [dependencies]
-axum = {git = "https://github.com/tokio-rs/axum", features = ["macros"]}
+axum = { git = "https://github.com/tokio-rs/axum", features = ["macros"] }
 serde = { version = "1.0", features = ["derive", "std"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { version = "1.33.0", features = ["full"] }
 thiserror = "1.0"
 http = "0.2.9"
-lazy_static = "1.4.0"
-ring = "0.17.3"
-base64 = "0.21.2"
-utoipa = { version = "4.0.0", features = ["axum_extras", "chrono"] }
-utoipa-redoc = { version = "1.0.0", features = ["axum"] }
-dotenvy = "0.15.7"
-anyhow = { version = "1.0.72", features = ["backtrace"] }
-chrono = { version = "0.4.26", features = ["serde"] }
 
+
+## openapi
+utoipa = { version = "4.0.0", features = ["axum_extras", "chrono"] }
+utoipa-redoc = { version = "1.0.0"}
+
+
+## logger
 tracing = "0.1"
 tracing-subscriber = "0.3"
 tracing-appender = "0.2"
 
-hex = "0.4.3"
-openssl = "0.10.57"
-openssl-sys = "0.9.93"
 serde_with = { version = "3.3.0", features = ["json", "chrono_0_4"] }
-sea-orm = { version = "0.12", features = [
+sea-orm = { version = "0.12.4", features = [
   "sqlx-mysql",
   "runtime-tokio-rustls",
   "with-chrono",
@@ -39,3 +37,19 @@ sea-orm = { version = "0.12", features = [
 redis = { version = "0.23.3", features = ["json", "aio", "tokio-comp"] }
 moka = { version = "0.12.1", features = ["future"] }
 tower = "0.4.13"
+
+## common utils
+hex = "0.4.3"
+itertools = "0.11.0"
+dotenvy = "0.15.7"
+anyhow = { version = "1.0.72", features = ["backtrace"] }
+chrono = { version = "0.4.26", features = ["serde"] }
+uuid = { version = "1.5.0", features = ["v7", "std"] }
+lazy_static = "1.4.0"
+base64 = "0.21.2"
+
+## encrypt crate
+openssl = "0.10.57"
+openssl-sys = "0.9.93"
+libsm = "0.5.1"
+ring = "0.17.3"

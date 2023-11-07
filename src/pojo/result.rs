@@ -1,2 +1,2 @@
+pub mod key;
 pub mod kms;
-pub mod secret;

@@ -2,6 +2,6 @@ FROM rust:latest
 
 WORKDIR /app
 
-COPY target/release/kms-secret-service .
+COPY target/release/kms-key-service .
 
-CMD ["./kms-secret-service"]
+CMD ["./kms-key-service"]

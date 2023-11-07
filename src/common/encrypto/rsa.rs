@@ -1,52 +1,30 @@
 use anyhow::Context;
 use openssl::{
     encrypt::{self},
-    hash, pkey, rsa, sign,
+    pkey, sign,
 };
 
+use super::algorithm::{EncryptoAdaptor, KeyAlgorithmFactory};
 use crate::common::errors::Result;
 
-pub struct RsaAlgorithm {}
-impl RsaAlgorithm {
-    pub fn generate(size: usize) -> Result<(Vec<u8>, Vec<u8>)> {
-        let rrg = rsa::Rsa::generate(size as u32)
-            .context("rsa generate key failed")?;
+pub struct RsaAlgorithmFactory {}
 
-        Ok((
-            rrg.private_key_to_der()
-                .context("export rsa public key failed")?,
-            rrg.public_key_to_der()
-                .context("export rsa private key failed")?,
-        ))
-    }
-
-    pub fn derive(private_key: &[u8]) -> Result<Vec<u8>> {
-        let key_pair: rsa::Rsa<pkey::Private> =
-            rsa::Rsa::private_key_from_der(private_key)
-                .context("import rsa key failed")?;
-        Ok(key_pair
-            .public_key_to_der()
-            .context("export public key failed")?)
-    }
-
-    pub fn sign(
+impl KeyAlgorithmFactory for RsaAlgorithmFactory {
+    fn sign(
+        &self,
         pri_key: &[u8],
         plaintext: &[u8],
-        message_digest: hash::MessageDigest,
-        padding: Option<rsa::Padding>,
+        e: EncryptoAdaptor,
     ) -> Result<Vec<u8>> {
-        let rsa_key_pair = rsa::Rsa::private_key_from_der(pri_key)
-            .context("import rsa private key failed")?;
-        let pkey = pkey::PKey::from_rsa(rsa_key_pair)
-            .context("rsa private key tansform to pkey failed")?;
-        let mut signer = sign::Signer::new(message_digest, &pkey)
+        let pkey = pkey::PKey::private_key_from_pkcs8(pri_key)
+            .context("import rsa private key pkcs8 failed")?;
+        let mut signer = sign::Signer::new(e.md.unwrap(), &pkey)
             .context("pkey tansform to rsa signer failed")?;
 
-        if let Some(pad) = padding {
-            signer.set_rsa_padding(pad).context(format!(
-                "rsa signer set padding failed, {:?}",
-                padding
-            ))?;
+        if let Some(pad) = e.padding {
+            signer
+                .set_rsa_padding(pad)
+                .context(format!("rsa signer set padding failed, {:?}", pad))?;
         }
         signer
             .update(plaintext)
@@ -55,27 +33,26 @@ impl RsaAlgorithm {
         Ok(signer.sign_to_vec().context("rsa signer sign failed")?)
     }
 
-    pub fn verify(
+    fn verify(
+        &self,
         pub_key: &[u8],
         plaintext: &[u8],
         signature: &[u8],
-        message_digest: hash::MessageDigest,
-        padding: Option<rsa::Padding>,
+        e: EncryptoAdaptor,
     ) -> Result<bool> {
-        let rsa_key_pair = rsa::Rsa::public_key_from_der(pub_key)
+        let pkey = pkey::PKey::public_key_from_der(pub_key)
             .context("import public key failed")?;
-        let pkey = pkey::PKey::from_rsa(rsa_key_pair).context("import")?;
-        let mut verifier = sign::Verifier::new(message_digest, &pkey)
+        let mut verifier = sign::Verifier::new(e.md.unwrap(), &pkey)
             .context("pkey tansform to verifer failed")?;
 
         verifier
             .update(plaintext)
             .context("rsa signer update plaintext failed")?;
 
-        if let Some(pad) = padding {
+        if let Some(pad) = e.padding {
             verifier.set_rsa_padding(pad).context(format!(
                 "rsa verifier set padding failed, {:?}",
-                padding
+                pad
             ))?;
         }
 
@@ -84,27 +61,25 @@ impl RsaAlgorithm {
             .context("rsa verifier verify failed")?)
     }
 
-    pub fn encrypt(
+    fn encrypt(
+        &self,
         pub_key: &[u8],
         plaintext: &[u8],
-        message_digest: Option<hash::MessageDigest>,
-        padding: Option<rsa::Padding>,
+        e: EncryptoAdaptor,
     ) -> Result<Vec<u8>> {
-        let rsa_key_pair = rsa::Rsa::public_key_from_der(pub_key)
-            .context("import public key failed")?;
-        let pkey_encrypter = pkey::PKey::from_rsa(rsa_key_pair.clone())
+        let pkey_encrypter = pkey::PKey::public_key_from_der(pub_key)
             .context("rsa public key transform to pkey faield")?;
         let mut encrypter = encrypt::Encrypter::new(&pkey_encrypter)
             .context("pkey tansform to decrypter failed")?;
 
-        if let Some(pad) = padding {
+        if let Some(pad) = e.padding {
             encrypter.set_rsa_padding(pad).context(format!(
                 "rsa encrypter set padding failed, {:?}",
-                padding
+                pad
             ))?;
         }
 
-        if let Some(md) = message_digest {
+        if let Some(md) = e.md {
             encrypter
                 .set_rsa_mgf1_md(md)
                 .context("rsa encrypter set mgf1 md failed")?;
@@ -124,27 +99,25 @@ impl RsaAlgorithm {
         Ok(to)
     }
 
-    pub fn decrypt(
+    fn decrypt(
+        &self,
         private_key: &[u8],
         cipher: &[u8],
-        message_digest: Option<hash::MessageDigest>,
-        padding: Option<rsa::Padding>,
+        e: EncryptoAdaptor,
     ) -> Result<Vec<u8>> {
-        let rsa_key_pair = rsa::Rsa::private_key_from_der(private_key)
-            .context("import rsa private key failed")?;
-        let pkey_decrypter = pkey::PKey::from_rsa(rsa_key_pair.clone())
-            .context("rsa key transform to pkey faield")?;
+        let pkey_decrypter = pkey::PKey::private_key_from_pkcs8(private_key)
+            .context("rsa private key pkcs8 to pkey faield")?;
         let mut decrypter = encrypt::Decrypter::new(&pkey_decrypter)
             .context("pkey tansform to decrypter failed")?;
 
-        if let Some(pad) = padding {
+        if let Some(pad) = e.padding {
             decrypter.set_rsa_padding(pad).context(format!(
                 "rsa decrypter set padding failed, {:?}",
-                padding
+                pad
             ))?;
         }
 
-        if let Some(md) = message_digest {
+        if let Some(md) = e.md {
             decrypter
                 .set_rsa_mgf1_md(md)
                 .context("rsa decrypter set mgf1 md failed")?;

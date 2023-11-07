@@ -13,12 +13,8 @@ pub enum ServiceError {
     BadRequest(String),
     #[error("{0}")]
     Unauthorized(String),
-    #[error("illegal secret format {0}")]
-    ChaoticSecret(String),
-    #[error("sign failed {0}")]
-    SignFailed(String),
-    #[error("signature verify failed {0}")]
-    VerifyFailed(String),
+    #[error("{0}")]
+    Unsupported(String),
     #[error("{0}")]
     NotFount(String),
     #[error("internal server error {0}")]
@@ -33,9 +29,10 @@ impl IntoResponse for ServiceError {
         let resp = match self {
             ServiceError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
             ServiceError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
-            ServiceError::SignFailed(msg) => (StatusCode::BAD_REQUEST, msg),
-            ServiceError::VerifyFailed(msg) => (StatusCode::BAD_REQUEST, msg),
             ServiceError::NotFount(msg) => (StatusCode::NOT_FOUND, msg),
+            ServiceError::Unsupported(msg) => {
+                (StatusCode::UNPROCESSABLE_ENTITY, msg)
+            }
             ServiceError::InternalServer(e) => {
                 tracing::debug!("error backtrace: {}", e.backtrace());
                 (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
@@ -43,7 +40,6 @@ impl IntoResponse for ServiceError {
             ServiceError::Datasource(e) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
             }
-            ServiceError::ChaoticSecret(msg) => (StatusCode::BAD_REQUEST, msg),
         };
 
         (

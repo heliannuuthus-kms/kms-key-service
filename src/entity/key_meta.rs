@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::common::secrets::types::{KeyOrigin, KeySpec, KeyState, KeyUsage};
+use crate::common::encrypto::types::{KeyOrigin, KeySpec, KeyState, KeyUsage};
 
 #[derive(
     Clone,
@@ -15,7 +15,7 @@ use crate::common::secrets::types::{KeyOrigin, KeySpec, KeyState, KeyUsage};
     Deserialize,
     Default,
 )]
-#[sea_orm(table_name = "t_secret_meta")]
+#[sea_orm(table_name = "t_key_meta")]
 pub struct Model {
     #[sea_orm(column_name = "_id", primary_key)]
     #[serde(skip)]
@@ -26,6 +26,8 @@ pub struct Model {
     pub origin: KeyOrigin,
     #[sea_orm(column_type = "Text", nullable)]
     pub description: Option<String>,
+    pub version: String,
+    pub primary_version: String,
     pub state: KeyState,
     pub usage: KeyUsage,
     pub rotation_interval: i64,
