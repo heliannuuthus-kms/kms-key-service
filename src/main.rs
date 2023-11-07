@@ -1,11 +1,12 @@
 use axum::{
     response::Html,
-    routing::{delete, get, patch, post, put},
+    routing::{delete, get, post, put},
     Router,
 };
 use common::{cache::RdConn, configs::env_var};
 use controller::{
-    key_controller::{create_key, import_key, import_key_params, set_key_meta},
+    key_controller::{create_key, import_key, import_key_params},
+    key_meta_controller::{set_key_alias, set_key_meta},
     kms_controller::{create_kms, destroy_kms, get_kms, set_kms},
     ApiDoc,
 };
@@ -41,8 +42,10 @@ async fn main() {
     let key_router = Router::new()
         .route("/", post(create_key))
         .route("/import", post(import_key))
-        .route("/import/params", get(import_key_params))
-        .route("/meta", patch(set_key_meta));
+        .route("/import/params", get(import_key_params));
+    let key_meta_router = Router::new()
+        .route("/", post(set_key_meta))
+        .route("/alias", post(set_key_alias));
     let kms_router = Router::new()
         .route("/", post(create_kms))
         .route("/", put(set_kms))
@@ -51,6 +54,7 @@ async fn main() {
     let app = Router::new()
         .nest("/kms", kms_router)
         .nest("/keys", key_router)
+        .nest("/keys/:key_id/meta", key_meta_router)
         .route(
             "/openapi",
             get(move || async { Html::from(Redoc::new(openapi).to_html()) }),

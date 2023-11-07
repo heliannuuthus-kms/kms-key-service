@@ -56,3 +56,14 @@ CREATE TABLE IF NOT EXISTS t_key_meta (
   INDEX idx_key_id(key_id),
   UNIQUE uniq_key_id_version(key_id, `version`)
 );
+
+CREATE TABLE IF NOT EXISTS t_key_alias (
+  _id BIGINT NOT NULL AUTO_INCREMENT,
+  key_id VARCHAR(32) NOT NULL COMMENT "主密钥标识",
+  alias VARCHAR(255) NOT NULL COMMENT "密钥别名",
+  updated_at DATETIME NOT NULL DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP,
+  created_at DATETIME NOT NULL DEFAULT NOW(),
+  PRIMARY KEY(_id),
+  INDEX idx_key_id(key_id),
+  UNIQUE uniq_key_alias(`alias`)
+)

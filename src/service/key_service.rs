@@ -148,7 +148,7 @@ pub async fn create_key(
         key.version
     );
     save_key(db, &key).await?;
-    key_meta_service::save_key_meta(db, &key_meta).await?;
+    key_meta_service::set_key_meta(db, &key_meta).await?;
 
     Ok(result)
 }
@@ -251,8 +251,6 @@ pub async fn import_key_material(
         &utils::decode64(&data.encrypted_key_material)?,
         material_data.wrapping_algorithm.into(),
     )?;
-
-    tracing::info!("print keys: {:?}", private_key);
 
     let key_model: KeyModel = get_main_key(db, key_id).await?;
 

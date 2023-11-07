@@ -5,6 +5,10 @@ pub use super::{
         ActiveModel as KeyActiveModel, Column as KeyColumn,
         Entity as KeyEntity, Model as KeyModel,
     },
+    key_alias::{
+        ActiveModel as KeyAliasActiveModel, Column as KeyAliasColumn,
+        Entity as KeyAliasEntity, Model as KeyAliasModel,
+    },
     key_meta::{
         ActiveModel as KeyMetaActiveModel, Column as KeyMetaColumn,
         Entity as KeyMetaEntity, Model as KeyMetaModel,

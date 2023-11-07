@@ -19,6 +19,7 @@ use crate::{
 };
 
 pub mod key_controller;
+pub mod key_meta_controller;
 pub mod kms_controller;
 
 #[derive(OpenApi)]
@@ -45,11 +46,12 @@ pub mod kms_controller;
         key_controller::create_key,
         key_controller::import_key,
         key_controller::import_key_params,
-        key_controller::set_key_meta,
         kms_controller::create_kms,
         kms_controller::set_kms,
         kms_controller::get_kms,
         kms_controller::destroy_kms,
+        key_meta_controller::set_key_meta,
+        key_meta_controller::set_key_alias,
     )
 )]
 pub struct ApiDoc {}
