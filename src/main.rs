@@ -22,9 +22,9 @@ mod repository;
 mod service;
 
 #[derive(Clone)]
-struct States {
-    db: DbConn,
-    rd: RdConn,
+pub struct States {
+    pub db: DbConn,
+    pub rd: RdConn,
 }
 
 #[tokio::main]
