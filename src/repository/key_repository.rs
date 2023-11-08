@@ -134,7 +134,7 @@ pub async fn pagin_key_alias<C: ConnectionTrait>(
 
     if let Some(next) = paginator.next {
         let id = datasource::from_next(&next)?;
-        cursor.before(id);
+        cursor.after(id - 1);
     };
 
     Ok(cursor

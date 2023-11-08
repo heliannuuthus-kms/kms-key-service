@@ -19,13 +19,11 @@ use utoipa::ToSchema;
 #[schema(as = KeyAliasModel)]
 pub struct Model {
     #[sea_orm(column_name = "_id", primary_key)]
-    #[serde(skip_deserializing)]
+    #[serde(skip_deserializing, skip_serializing)]
     pub id: i64,
     pub key_id: String,
     pub alias: String,
-    #[serde(skip_deserializing)]
-    pub updated_at: DateTime,
-    #[serde(skip_deserializing)]
+    #[serde(skip_deserializing, skip_serializing)]
     pub created_at: DateTime,
 }
 

@@ -1,5 +1,8 @@
 use anyhow::{anyhow, Context};
-use base64::{engine::general_purpose::STANDARD, Engine};
+use base64::{
+    engine::general_purpose::{STANDARD, STANDARD_NO_PAD},
+    Engine,
+};
 use ring::rand::{SecureRandom, SystemRandom};
 
 use super::errors::{Result, ServiceError};
@@ -47,6 +50,16 @@ pub fn encode64(source: &[u8]) -> String {
 
 pub fn decode64(source: &str) -> Result<Vec<u8>> {
     Ok(STANDARD
+        .decode(source)
+        .context("base64url decode failed".to_string())?)
+}
+
+pub fn encode64NoPadding(source: &[u8]) -> String {
+    STANDARD_NO_PAD.encode(source)
+}
+
+pub fn decode64NoPadding(source: &str) -> Result<Vec<u8>> {
+    Ok(STANDARD_NO_PAD
         .decode(source)
         .context("base64url decode failed".to_string())?)
 }

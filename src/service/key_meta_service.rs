@@ -8,12 +8,11 @@ use sea_orm::DbConn;
 use super::key_service;
 use crate::{
     common::{
-        configs::{env_var_default, Patch},
+        configs::env_var_default,
         datasource::{self, PaginatedResult, Paginator},
         errors::{Result, ServiceError},
     },
     entity::prelude::*,
-    pojo::form::key_meta::{KeyAliasDeleteForm, KeyAliasPatchForm},
     repository::key_repository,
 };
 
@@ -119,37 +118,35 @@ pub async fn get_aliases(
     )
 }
 
-pub async fn set_alias(
-    db: &DbConn,
-    form: &KeyAliasPatchForm,
-) -> Result<Vec<KeyAliasModel>> {
-    let _main_key = key_service::get_main_key(db, &form.key_id).await?;
-    let mut aliases = get_aliases(db, &form.key_id).await?;
+pub async fn set_alias(db: &DbConn, key_id: &str, alias: &str) -> Result<()> {
+    let _main_key = key_service::get_main_key(db, key_id).await?;
+    let aliases = get_aliases(db, key_id).await?;
     let limit = env_var_default::<usize>("KEY_ALIAS_LIMIT", 5);
     if aliases.len() >= limit {
         Err(ServiceError::BadRequest(format!(
             "alias reached the upper limit, key_id: {}",
-            form.key_id
+            key_id
         )))
     } else {
-        let mut empty: KeyAliasModel = KeyAliasModel::default();
-        form.merge(&mut empty);
-        key_repository::set_key_alias(db, &empty).await?;
-        aliases.push(empty);
-        Ok(aliases)
+        key_repository::set_key_alias(
+            db,
+            &KeyAliasModel {
+                key_id: key_id.to_owned(),
+                alias: alias.to_owned(),
+                ..Default::default()
+            },
+        )
+        .await?;
+        Ok(())
     }
 }
 
 pub async fn remove_key_aliases(
     db: &DbConn,
-    form: &KeyAliasDeleteForm,
+    key_id: &str,
+    aliases: Vec<String>,
 ) -> Result<()> {
-    key_repository::delete_key_aliases(
-        db,
-        &form.key_id,
-        form.aliases.aliases.clone(),
-    )
-    .await?;
+    key_repository::delete_key_aliases(db, key_id, aliases).await?;
     Ok(())
 }
 
@@ -159,11 +156,16 @@ pub async fn list_key_aliases(
 ) -> Result<PaginatedResult<Vec<KeyAliasModel>>> {
     let mut result =
         key_repository::pagin_key_alias(db, paginator.clone()).await?;
-
-    let next = result.last().map(|tail| datasource::to_next(tail.id));
-
-    if result.len() <= paginator.limit.unwrap_or(10) as usize {
+    let limit = paginator.limit.unwrap_or(10) as usize;
+    // ge limit pop the last and the last is next, eq limit pop the last and the
+    // next is None, else None
+    let next = if result.len() > limit {
+        result.pop().map(|tail| datasource::to_next(tail.id))
+    } else if result.len() == limit {
         result.pop();
+        None
+    } else {
+        None
     };
 
     Ok(PaginatedResult { next, data: result })
