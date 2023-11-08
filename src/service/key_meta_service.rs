@@ -1,16 +1,19 @@
-use crate::{
-    common::configs::{env_var_default, Patch},
-    entity::prelude::*,
-    pojo::form::key_meta::KeyAliasPatchForm,
-};
+use std::collections::HashMap;
+
 use chrono::Duration;
 use lazy_static::lazy_static;
 use moka::future::Cache;
 use sea_orm::DbConn;
-use std::collections::HashMap;
 
+use super::key_service;
 use crate::{
-    common::errors::{Result, ServiceError},
+    common::{
+        configs::{env_var_default, Patch},
+        datasource::{self, PaginatedResult, Paginator},
+        errors::{Result, ServiceError},
+    },
+    entity::prelude::*,
+    pojo::form::key_meta::{KeyAliasDeleteForm, KeyAliasPatchForm},
     repository::key_repository,
 };
 
@@ -120,6 +123,7 @@ pub async fn set_alias(
     db: &DbConn,
     form: &KeyAliasPatchForm,
 ) -> Result<Vec<KeyAliasModel>> {
+    let _main_key = key_service::get_main_key(db, &form.key_id).await?;
     let mut aliases = get_aliases(db, &form.key_id).await?;
     let limit = env_var_default::<usize>("KEY_ALIAS_LIMIT", 5);
     if aliases.len() >= limit {
@@ -134,4 +138,33 @@ pub async fn set_alias(
         aliases.push(empty);
         Ok(aliases)
     }
+}
+
+pub async fn remove_key_aliases(
+    db: &DbConn,
+    form: &KeyAliasDeleteForm,
+) -> Result<()> {
+    key_repository::delete_key_aliases(
+        db,
+        &form.key_id,
+        form.aliases.aliases.clone(),
+    )
+    .await?;
+    Ok(())
+}
+
+pub async fn list_key_aliases(
+    db: &DbConn,
+    paginator: Paginator,
+) -> Result<PaginatedResult<Vec<KeyAliasModel>>> {
+    let mut result =
+        key_repository::pagin_key_alias(db, paginator.clone()).await?;
+
+    let next = result.last().map(|tail| datasource::to_next(tail.id));
+
+    if result.len() <= paginator.limit.unwrap_or(10) as usize {
+        result.pop();
+    };
+
+    Ok(PaginatedResult { next, data: result })
 }

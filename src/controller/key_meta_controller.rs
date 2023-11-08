@@ -1,20 +1,24 @@
+use axum::{extract::State, response::IntoResponse};
+
 use crate::{
-    common::{axum::Json, configs::Patch, errors::Result},
-    pojo::form::{
-        key::KeyCreateForm,
-        key_meta::{KeyAliasPatchForm, KeyMetaPatchForm},
+    common::{
+        axum::{Json, Query},
+        configs::Patch,
+        datasource::Paginator,
+        errors::Result,
+    },
+    pojo::form::key_meta::{
+        KeyAliasDeleteForm, KeyAliasPatchForm, KeyMetaPatchForm,
     },
     service::key_meta_service,
     States,
 };
-use axum::extract::State;
-use axum::response::IntoResponse;
 
 #[utoipa::path(
   put,
   path="/",
   operation_id = "设置密钥元数据信息",
-  context_path= "/keys/{key_id}/meta",
+  context_path= "/keys/{key_id}/metas",
   responses(
       (status = 200, description = "", body = String),
       (status = 400, description = "illegal params")
@@ -36,9 +40,9 @@ pub async fn set_key_meta(
 
 #[utoipa::path(
   patch,
-  path="/alias",
+  path="",
   operation_id = "设置密钥别名",
-  context_path= "/keys/{key_id}/meta",
+  context_path= "/keys/{key_id}/aliases",
   responses(
       (status = 200, description = "", body = String),
       (status = 400, description = "illegal params")
@@ -47,7 +51,7 @@ pub async fn set_key_meta(
 )]
 pub async fn set_key_alias(
     State(States { db, .. }): State<States>,
-    Json(form): Json<KeyAliasPatchForm>,
+    form: KeyAliasPatchForm,
 ) -> Result<impl IntoResponse> {
     tracing::info!("set key alias: {:?}", form);
     key_meta_service::set_alias(&db, &form).await?;
@@ -56,40 +60,41 @@ pub async fn set_key_alias(
 
 #[utoipa::path(
   delete,
-  path="/alias",
-  operation_id = "删除密钥别名",
-  context_path= "/keys/{key_id}/meta",
+  path="",
+  operation_id = "批量删除密钥别名",
+  context_path= "/keys/{key_id}/aliases",
+  request_body = KeyAliasDeleteForm,
   responses(
-      (status = 200, description = "", body = String),
+      (status = 200, description = "", body = ()),
       (status = 400, description = "illegal params")
   ),
-  request_body = KeyAliasPatchForm
 )]
 pub async fn remove_key_alias(
     State(States { db, .. }): State<States>,
-    Json(form): Json<KeyAliasPatchForm>,
+    Json(form): Json<KeyAliasDeleteForm>,
 ) -> Result<impl IntoResponse> {
-    tracing::info!("set key alias: {:?}", form);
-    key_meta_service::set_alias(&db, &form).await?;
+    tracing::info!("remove key alias: {:?}", form);
+    key_meta_service::remove_key_aliases(&db, &form).await?;
     Ok(())
 }
 
 #[utoipa::path(
-  delete,
-  path="/alias",
-  operation_id = "批量删除密钥别名",
-  context_path= "/keys/{key_id}/meta",
-  request_body = KeyAliasPatchForm,
-  responses(
-      (status = 200, description = "", body = String),
-      (status = 400, description = "illegal params")
-  ),
-)]
-pub async fn batch_remove_key_alias(
+    get,
+    path="",
+    operation_id = "密钥元数据信息的分页查询",
+    context_path= "/keys/{key_id}/aliases",
+    request_body = Paginator,
+    responses(
+        (status = 200, description = "", body = PaginatedKeyAliasModels),
+        (status = 400, description = "illegal params")
+    ),
+  )]
+pub async fn list_key_alias(
     State(States { db, .. }): State<States>,
-    Json(form): Json<KeyAliasPatchForm>,
+    Query(paginator): Query<Paginator>,
 ) -> Result<impl IntoResponse> {
-    tracing::info!("set key alias: {:?}", form);
-    key_meta_service::set_alias(&db, &form).await?;
-    Ok(())
+    tracing::info!("paging alias: {:?}", paginator);
+    key_meta_service::list_key_aliases(&db, paginator)
+        .await
+        .map(axum::Json)
 }

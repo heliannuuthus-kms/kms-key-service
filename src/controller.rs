@@ -1,14 +1,20 @@
 use utoipa::OpenApi;
 
 use crate::{
-    common::encrypto::types::{
-        KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage, WrappingKeyAlgorithm,
-        WrappingKeySpec,
+    common::{
+        datasource::{PaginatedKeyAliasModels, Paginator},
+        encrypto::types::{
+            KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage,
+            WrappingKeyAlgorithm, WrappingKeySpec,
+        },
     },
-    entity::{self},
+    entity::prelude::*,
     pojo::{
         form::{
             key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
+            key_meta::{
+                KeyAliasDeleteForm, KeyAliasPatchForm, KeyMetaPatchForm,
+            },
             kms::{KmsCreateForm, KmsUpdateForm},
         },
         result::{
@@ -25,7 +31,9 @@ pub mod kms_controller;
 #[derive(OpenApi)]
 #[openapi(
     components(schemas(
-        entity::kms::Model,
+        KmsModel,
+        KeyAliasModel,
+        KeyMetaModel,
         KmsResult,
         KmsCreateForm,
         KmsUpdateForm,
@@ -34,13 +42,18 @@ pub mod kms_controller;
         KeyImportForm,
         KeyCreateResult,
         KeyMaterialImportParamsResult,
+        KeyAliasDeleteForm,
+        KeyAliasPatchForm,
+        KeyMetaPatchForm,
         KeyUsage,
         KeyOrigin,
         KeySpec,
         KeyState,
         KeyType,
         WrappingKeyAlgorithm,
-        WrappingKeySpec
+        WrappingKeySpec,
+        Paginator,
+        PaginatedKeyAliasModels,
     )),
     paths(
         key_controller::create_key,
@@ -52,6 +65,8 @@ pub mod kms_controller;
         kms_controller::destroy_kms,
         key_meta_controller::set_key_meta,
         key_meta_controller::set_key_alias,
+        key_meta_controller::remove_key_alias,
+        key_meta_controller::list_key_alias,
     )
 )]
 pub struct ApiDoc {}

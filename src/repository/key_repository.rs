@@ -1,7 +1,13 @@
 use anyhow::Context;
 use sea_orm::{sea_query::OnConflict, *};
 
-use crate::{common::errors::Result, entity::prelude::*};
+use crate::{
+    common::{
+        datasource::{self, Paginator},
+        errors::Result,
+    },
+    entity::prelude::*,
+};
 
 pub async fn insert_key<C: ConnectionTrait>(
     db: &C,
@@ -88,6 +94,11 @@ pub async fn set_key_alias<C: ConnectionTrait>(
     model: &KeyAliasModel,
 ) -> Result<()> {
     KeyAliasEntity::insert(model.clone().into_active_model())
+        .on_conflict(
+            OnConflict::columns([KeyAliasColumn::Alias, KeyAliasColumn::KeyId])
+                .update_column(KeyAliasColumn::KeyId)
+                .to_owned(),
+        )
         .exec(db)
         .await?;
     Ok(())
@@ -95,7 +106,7 @@ pub async fn set_key_alias<C: ConnectionTrait>(
 
 pub async fn delete_key_aliases<C: ConnectionTrait>(
     db: &C,
-    key_id: String,
+    key_id: &str,
     alias: Vec<String>,
 ) -> Result<()> {
     let mut se = KeyAliasColumn::KeyId.contains(key_id);
@@ -107,13 +118,27 @@ pub async fn delete_key_aliases<C: ConnectionTrait>(
     Ok(())
 }
 
-pub async fn delete_keys_aliases<C: ConnectionTrait>(
+pub async fn pagin_key_alias<C: ConnectionTrait>(
     db: &C,
-    key_ids: Vec<String>,
-) -> Result<()> {
-    KeyAliasEntity::delete_many()
-        .filter(KeyAliasColumn::KeyId.is_in(key_ids))
-        .exec(db)
-        .await?;
-    Ok(())
+    paginator: Paginator,
+) -> Result<Vec<KeyAliasModel>> {
+    let mut cursor = KeyAliasEntity::find()
+        .select_only()
+        .columns([
+            KeyAliasColumn::Id,
+            KeyAliasColumn::KeyId,
+            KeyAliasColumn::Alias,
+            KeyAliasColumn::CreatedAt,
+        ])
+        .cursor_by(KeyAliasColumn::Id);
+
+    if let Some(next) = paginator.next {
+        let id = datasource::from_next(&next)?;
+        cursor.before(id);
+    };
+
+    Ok(cursor
+        .first(paginator.limit.unwrap_or(10) + 1)
+        .all(db)
+        .await?)
 }

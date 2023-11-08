@@ -21,7 +21,7 @@ use crate::{
   operation_id = "获取 kms 实例信息",
   context_path= "/kms",
   responses(
-      (status = 200, description = "kms 实例信息", body = entity::kms::Model, content_type="application/json"),
+      (status = 200, description = "kms 实例信息", body = KmsModel, content_type="application/json"),
       (status = 400, description = "illegal params")
   ),
   request_body = KmsCreateForm
@@ -71,7 +71,7 @@ pub async fn create_kms(
   operation_id = "更新 kms 信息",
   context_path= "/kms",
   responses(
-      (status = 200, description = "密钥标识", body = entity::kms::Model, content_type="application/json"),
+      (status = 200, description = "密钥标识", body = KmsModel, content_type="application/json"),
       (status = 400, description = "illegal params")
   ),
   request_body = KmsUpdateForm

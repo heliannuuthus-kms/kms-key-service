@@ -4,13 +4,13 @@ use sea_orm::DbConn;
 
 use crate::{
     common::errors::{Result, ServiceError},
-    entity::{self},
+    entity::prelude::KmsModel,
     pojo::result::kms::KmsResult,
     repository::kms_repository,
 };
 
 lazy_static! {
-    static ref KMS_INSTANCE_CACHE: moka::future::Cache<String, entity::kms::Model> =
+    static ref KMS_INSTANCE_CACHE: moka::future::Cache<String, KmsModel> =
         moka::future::CacheBuilder::new(64 * 1024 * 1024)
             .name("kms_instance_cache")
             .time_to_idle(Duration::minutes(30).to_std().unwrap())
@@ -21,10 +21,7 @@ lazy_static! {
             .build();
 }
 
-pub async fn create_kms(
-    db: &DbConn,
-    model: &entity::kms::Model,
-) -> Result<KmsResult> {
+pub async fn create_kms(db: &DbConn, model: &KmsModel) -> Result<KmsResult> {
     kms_repository::insert_or_update_kms_instance(db, model).await?;
     Ok(KmsResult {
         kms_id: model.kms_id.to_string(),
@@ -43,7 +40,7 @@ pub async fn delete_kms(db: &DbConn, kms_id: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn get_kms(db: &DbConn, kms_id: &str) -> Result<entity::kms::Model> {
+pub async fn get_kms(db: &DbConn, kms_id: &str) -> Result<KmsModel> {
     let cache_key = format!("kms:secrets:kms:instance:{}", kms_id);
     Ok(match KMS_INSTANCE_CACHE.get(&cache_key).await {
         Some(model) => model,
@@ -64,7 +61,7 @@ pub async fn get_kms(db: &DbConn, kms_id: &str) -> Result<entity::kms::Model> {
     })
 }
 
-pub async fn set_kms(db: &DbConn, model: entity::kms::Model) -> Result<()> {
+pub async fn set_kms(db: &DbConn, model: KmsModel) -> Result<()> {
     kms_repository::insert_or_update_kms_instance(db, &model).await?;
 
     KMS_INSTANCE_CACHE

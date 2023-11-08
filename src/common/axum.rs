@@ -46,7 +46,7 @@ pub struct ErrorResponse {
 impl From<JsonRejection> for ErrorResponse {
     fn from(rejection: JsonRejection) -> Self {
         Self {
-            code: rejection.status(),
+            code: StatusCode::BAD_REQUEST,
             msg: rejection.body_text(),
             timestamp: Local::now().fixed_offset(),
         }
@@ -56,7 +56,7 @@ impl From<JsonRejection> for ErrorResponse {
 impl From<FormRejection> for ErrorResponse {
     fn from(rejection: FormRejection) -> Self {
         Self {
-            code: rejection.status(),
+            code: StatusCode::BAD_REQUEST,
             msg: rejection.body_text(),
             timestamp: Local::now().fixed_offset(),
         }
@@ -66,7 +66,7 @@ impl From<FormRejection> for ErrorResponse {
 impl From<QueryRejection> for ErrorResponse {
     fn from(rejection: QueryRejection) -> Self {
         Self {
-            code: rejection.status(),
+            code: StatusCode::BAD_REQUEST,
             msg: rejection.body_text(),
             timestamp: Local::now().fixed_offset(),
         }
