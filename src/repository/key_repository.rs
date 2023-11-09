@@ -1,13 +1,7 @@
 use anyhow::Context;
-use sea_orm::{sea_query::OnConflict, *};
+use sea_orm::*;
 
-use crate::{
-    common::{
-        datasource::{self, Paginator},
-        errors::Result,
-    },
-    entity::prelude::*,
-};
+use crate::{common::errors::Result, entity::prelude::*};
 
 pub async fn insert_key<C: ConnectionTrait>(
     db: &C,

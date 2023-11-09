@@ -1,8 +1,12 @@
-use crate::common::datasource::Paginator;
-use crate::common::{errors::Result, datasource};
-use crate::entity::prelude::*;
-use sea_orm::{ConnectionTrait, EntityTrait, IntoActiveModel, sea_query::OnConflict, ColumnTrait, QueryFilter, QuerySelect};
+use sea_orm::{
+    sea_query::OnConflict, ColumnTrait, ConnectionTrait, EntityTrait,
+    IntoActiveModel, QueryFilter, QuerySelect,
+};
 
+use crate::{
+    common::{datasource, datasource::Paginator, errors::Result},
+    entity::prelude::*,
+};
 
 pub async fn insert_or_update_key_meta<C: ConnectionTrait>(
     db: &C,
