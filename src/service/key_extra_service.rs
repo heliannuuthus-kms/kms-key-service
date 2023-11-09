@@ -13,7 +13,7 @@ use crate::{
         errors::{Result, ServiceError},
     },
     entity::prelude::*,
-    repository::key_repository,
+    repository::{key_extra_repository, key_repository},
 };
 
 lazy_static! {
@@ -32,7 +32,7 @@ lazy_static! {
 }
 
 pub async fn set_key_meta(db: &DbConn, model: &KeyMetaModel) -> Result<()> {
-    key_repository::insert_or_update_key_meta(db, model).await?;
+    key_extra_repository::insert_or_update_key_meta(db, model).await?;
     KEY_VERSION_META_CACHE
         .remove(&format!("kms:keys:key_meta_version:{}", model.version))
         .await;
@@ -109,7 +109,8 @@ pub async fn get_aliases(
         if let Some(r) = KEY_ALIAS_CACHE.get(&key_alias_cache_key).await {
             r
         } else {
-            let aliaes = key_repository::select_key_alias(db, key_id).await?;
+            let aliaes =
+                key_extra_repository::select_key_alias(db, key_id).await?;
             KEY_ALIAS_CACHE
                 .insert(key_alias_cache_key, aliaes.clone())
                 .await;
@@ -128,7 +129,7 @@ pub async fn set_alias(db: &DbConn, key_id: &str, alias: &str) -> Result<()> {
             key_id
         )))
     } else {
-        key_repository::set_key_alias(
+        key_extra_repository::set_key_alias(
             db,
             &KeyAliasModel {
                 key_id: key_id.to_owned(),
@@ -146,7 +147,7 @@ pub async fn remove_key_aliases(
     key_id: &str,
     aliases: Vec<String>,
 ) -> Result<()> {
-    key_repository::delete_key_aliases(db, key_id, aliases).await?;
+    key_extra_repository::delete_key_aliases(db, key_id, aliases).await?;
     Ok(())
 }
 
@@ -155,17 +156,19 @@ pub async fn list_key_aliases(
     paginator: Paginator,
 ) -> Result<PaginatedResult<Vec<KeyAliasModel>>> {
     let mut result =
-        key_repository::pagin_key_alias(db, paginator.clone()).await?;
+        key_extra_repository::pagin_key_alias(db, paginator.clone()).await?;
     let limit = paginator.limit.unwrap_or(10) as usize;
     // ge limit pop the last and the last is next, eq limit pop the last and the
     // next is None, else None
-    let next = if result.len() > limit {
-        result.pop().map(|tail| datasource::to_next(tail.id))
-    } else if result.len() == limit {
-        result.pop();
-        None
-    } else {
-        None
+    let next = match result.len().cmp(&limit) {
+        std::cmp::Ordering::Less => {
+            result.pop().map(|tail| datasource::to_next(tail.id))
+        }
+        std::cmp::Ordering::Equal => {
+            result.pop();
+            None
+        }
+        std::cmp::Ordering::Greater => None,
     };
 
     Ok(PaginatedResult { next, data: result })

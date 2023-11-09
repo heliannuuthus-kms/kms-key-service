@@ -26,11 +26,11 @@ pub async fn init() -> Result<DatabaseConnection> {
 pub fn to_next(id: i64) -> String {
     let bigint = BigInt::from(id);
     let bytes = bigint.to_signed_bytes_le();
-    utils::encode64NoPadding(&bytes)
+    utils::encode64_no_padding(&bytes)
 }
 
 pub fn from_next(next: &str) -> Result<i64> {
-    let bytes = utils::decode64NoPadding(next)?;
+    let bytes = utils::decode64_no_padding(next)?;
     let bigint: BigInt = BigInt::from_signed_bytes_be(&bytes);
     Ok(bigint.to_i64().context("next convert i64 failed")?)
 }
