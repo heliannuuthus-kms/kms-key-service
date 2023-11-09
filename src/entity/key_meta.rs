@@ -2,6 +2,7 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use crate::common::encrypto::types::{KeyOrigin, KeySpec, KeyState, KeyUsage};
 
@@ -13,9 +14,11 @@ use crate::common::encrypto::types::{KeyOrigin, KeySpec, KeyState, KeyUsage};
     Eq,
     Serialize,
     Deserialize,
+    ToSchema,
     Default,
 )]
 #[sea_orm(table_name = "t_key_meta")]
+#[schema(as = KeyMetaModel)]
 pub struct Model {
     #[sea_orm(column_name = "_id", primary_key)]
     #[serde(skip)]

@@ -18,6 +18,7 @@ pub struct KeyCreateResult {
     pub key_spec: KeySpec,
     pub key_usage: KeyUsage,
     pub key_state: KeyState,
+    pub version: String,
     pub primary_key_version: String,
     #[serde_as(as = "Option<DurationSeconds<i64>>")]
     #[serde(skip_serializing_if = "Option::is_none")]

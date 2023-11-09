@@ -74,20 +74,3 @@ pub async fn import_key(
     Ok((StatusCode::OK, axum::Json(json!({"key_id": form.key_id})))
         .into_response())
 }
-
-#[utoipa::path(
-    patch,
-    path="/meta",
-    operation_id = "更新密钥元数据信息",
-    context_path= "/keys",
-    responses(
-        (status = 200, description = "", body = String),
-        (status = 400, description = "illegal params")
-    ),
-    request_body = KeyCreateForm
-)]
-pub async fn set_key_meta(
-    Json(_form): Json<KeyCreateForm>,
-) -> Result<impl IntoResponse> {
-    Ok("")
-}

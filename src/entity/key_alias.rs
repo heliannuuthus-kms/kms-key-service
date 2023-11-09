@@ -12,20 +12,19 @@ use utoipa::ToSchema;
     Eq,
     Serialize,
     Deserialize,
-    Default,
     ToSchema,
+    Default,
 )]
-#[sea_orm(table_name = "t_kms")]
-#[schema(as = KmsModel)]
+#[sea_orm(table_name = "t_key_alias")]
+#[schema(as = KeyAliasModel)]
 pub struct Model {
     #[sea_orm(column_name = "_id", primary_key)]
-    #[serde(skip)]
+    #[serde(skip_deserializing, skip_serializing)]
     pub id: i64,
-    #[sea_orm(unique)]
-    pub kms_id: String,
-    pub name: String,
-    #[sea_orm(column_type = "Text", nullable)]
-    pub description: Option<String>,
+    pub key_id: String,
+    pub alias: String,
+    #[serde(skip_deserializing, skip_serializing)]
+    pub created_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
