@@ -12,7 +12,7 @@ use crate::{
     pojo::{
         form::{
             key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
-            key_meta::{
+            key_extra::{
                 KeyAliasDeleteForm, KeyAliasPatchForm, KeyMetaPatchForm,
             },
             kms::{KmsCreateForm, KmsUpdateForm},
@@ -25,7 +25,7 @@ use crate::{
 };
 
 pub mod key_controller;
-pub mod key_meta_controller;
+pub mod key_extra_controller;
 pub mod kms_controller;
 
 #[derive(OpenApi)]
@@ -63,10 +63,10 @@ pub mod kms_controller;
         kms_controller::set_kms,
         kms_controller::get_kms,
         kms_controller::destroy_kms,
-        key_meta_controller::set_key_meta,
-        key_meta_controller::set_key_alias,
-        key_meta_controller::remove_key_alias,
-        key_meta_controller::list_key_alias,
+        key_extra_controller::set_key_meta,
+        key_extra_controller::set_key_alias,
+        key_extra_controller::remove_key_alias,
+        key_extra_controller::list_key_alias,
     )
 )]
 pub struct ApiDoc {}

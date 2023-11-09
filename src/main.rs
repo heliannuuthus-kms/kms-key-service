@@ -6,7 +6,7 @@ use axum::{
 use common::{cache::RdConn, configs::env_var};
 use controller::{
     key_controller::{create_key, import_key, import_key_params},
-    key_meta_controller::{
+    key_extra_controller::{
         list_key_alias, remove_key_alias, set_key_alias, set_key_meta,
     },
     kms_controller::{create_kms, destroy_kms, get_kms, set_kms},

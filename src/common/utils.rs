@@ -54,11 +54,11 @@ pub fn decode64(source: &str) -> Result<Vec<u8>> {
         .context("base64url decode failed".to_string())?)
 }
 
-pub fn encode64NoPadding(source: &[u8]) -> String {
+pub fn encode64_no_padding(source: &[u8]) -> String {
     STANDARD_NO_PAD.encode(source)
 }
 
-pub fn decode64NoPadding(source: &str) -> Result<Vec<u8>> {
+pub fn decode64_no_padding(source: &str) -> Result<Vec<u8>> {
     Ok(STANDARD_NO_PAD
         .decode(source)
         .context("base64url decode failed".to_string())?)

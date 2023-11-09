@@ -7,7 +7,7 @@ use sea_orm::*;
 use serde_json::json;
 
 use super::{
-    key_meta_service::{self, get_key_metas},
+    key_extra_service::{self, get_key_metas},
     kms_service,
 };
 use crate::{
@@ -148,7 +148,7 @@ pub async fn create_key(
         key.version
     );
     save_key(db, &key).await?;
-    key_meta_service::set_key_meta(db, &key_meta).await?;
+    key_extra_service::set_key_meta(db, &key_meta).await?;
 
     Ok(result)
 }
@@ -255,7 +255,7 @@ pub async fn import_key_material(
     let key_model: KeyModel = get_main_key(db, key_id).await?;
 
     let key_meta_model =
-        key_meta_service::get_version_key_meta(db, key_id, &key_model.version)
+        key_extra_service::get_version_key_meta(db, key_id, &key_model.version)
             .await?;
 
     let meta = algorithm::select_meta(key_meta_model.spec);

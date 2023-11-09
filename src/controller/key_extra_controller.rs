@@ -10,10 +10,10 @@ use crate::{
         datasource::Paginator,
         errors::Result,
     },
-    pojo::form::key_meta::{
+    pojo::form::key_extra::{
         KeyAliasDeleteForm, KeyAliasPatchForm, KeyMetaPatchForm,
     },
-    service::key_meta_service,
+    service::key_extra_service,
     States,
 };
 
@@ -34,9 +34,9 @@ pub async fn set_key_meta(
     Json(form): Json<KeyMetaPatchForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("set key meta, key_id: {}, meta: {:?}", key_id, form);
-    let mut model = key_meta_service::get_main_key_meta(&db, &key_id).await?;
+    let mut model = key_extra_service::get_main_key_meta(&db, &key_id).await?;
     form.merge(&mut model);
-    key_meta_service::set_key_meta(&db, &model)
+    key_extra_service::set_key_meta(&db, &model)
         .await
         .map(|_| axum::Json(model))
 }
@@ -58,7 +58,7 @@ pub async fn set_key_alias(
     Json(form): Json<KeyAliasPatchForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("set key alias, key_id: {}, alias: {:?}", key_id, form);
-    key_meta_service::set_alias(&db, &key_id, &form.alias).await?;
+    key_extra_service::set_alias(&db, &key_id, &form.alias).await?;
     Ok(())
 }
 
@@ -79,7 +79,7 @@ pub async fn remove_key_alias(
     Json(form): Json<KeyAliasDeleteForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("remove key alias, key_id: {}, form: {:?}", key_id, form);
-    key_meta_service::remove_key_aliases(&db, &key_id, form.aliases).await?;
+    key_extra_service::remove_key_aliases(&db, &key_id, form.aliases).await?;
     Ok(())
 }
 
@@ -99,7 +99,7 @@ pub async fn list_key_alias(
     Query(paginator): Query<Paginator>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("paging alias: {:?}", paginator);
-    key_meta_service::list_key_aliases(&db, paginator)
+    key_extra_service::list_key_aliases(&db, paginator)
         .await
         .map(axum::Json)
 }
