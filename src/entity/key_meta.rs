@@ -38,6 +38,12 @@ pub struct Model {
     pub material_expire_at: Option<DateTimeWithTimeZone>,
     pub last_rotation_at: Option<DateTimeWithTimeZone>,
     pub deletion_at: Option<DateTimeWithTimeZone>,
+    #[serde(skip_deserializing)]
+    #[sea_orm(default_expr = "Expr::current_timestamp()")]
+    pub updated_at: DateTime,
+    #[serde(skip_deserializing)]
+    #[sea_orm(default_expr = "Expr::current_timestamp()")]
+    pub created_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

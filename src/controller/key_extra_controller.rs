@@ -2,6 +2,7 @@ use axum::{
     extract::{Path, State},
     response::IntoResponse,
 };
+use itertools::Itertools;
 
 use crate::{
     common::{
@@ -13,13 +14,13 @@ use crate::{
     pojo::form::key_extra::{
         KeyAliasDeleteForm, KeyAliasPatchForm, KeyMetaPatchForm,
     },
-    service::key_extra_service,
+    service::{key_extra_service, key_service},
     States,
 };
 
 #[utoipa::path(
   patch,
-  path="/",
+  path="",
   operation_id = "设置密钥元数据信息",
   context_path= "/keys/{key_id}/metas",
   responses(
@@ -39,6 +40,54 @@ pub async fn set_key_meta(
     key_extra_service::set_key_meta(&db, &model)
         .await
         .map(|_| axum::Json(model))
+}
+
+#[utoipa::path(
+    get,
+    path="",
+    operation_id = "获取主密钥元数据信息",
+    context_path= "/keys/{key_id}/metas",
+    responses(
+        (status = 200, description = "", body = KeyMetaModel),
+        (status = 400, description = "illegal params")
+    ),
+    request_body = KeyMetaPatchForm
+  )]
+pub async fn get_key_meta(
+    State(States { db, .. }): State<States>,
+    Path(key_id): Path<String>,
+) -> Result<impl IntoResponse> {
+    tracing::info!("get key meta, key_id: {}", key_id);
+    key_extra_service::get_main_key_meta(&db, &key_id)
+        .await
+        .map(axum::Json)
+}
+
+#[utoipa::path(
+    get,
+    path="",
+    operation_id = "分页查询主密钥版本信息",
+    context_path= "/keys/{key_id}/versions",
+    responses(
+        (status = 200, description = "", body = ()),
+        (status = 400, description = "illegal params")
+    ),
+    request_body = KeyMetaPatchForm
+  )]
+pub async fn list_key_version(
+    State(States { db, .. }): State<States>,
+    Path(key_id): Path<String>,
+    Query(paginator): Query<Paginator>,
+) -> Result<impl IntoResponse> {
+    tracing::info!(
+        "pagin key meta, key_id: {}, paginator: {:?}",
+        key_id,
+        paginator
+    );
+
+    key_service::list_key_versions(&db, &key_id, &paginator)
+        .await
+        .map(axum::Json)
 }
 
 #[utoipa::path(

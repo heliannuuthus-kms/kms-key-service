@@ -1,7 +1,14 @@
 use anyhow::Context;
 use sea_orm::*;
 
-use crate::{common::errors::Result, entity::prelude::*};
+use crate::{
+    common::{
+        datasource::{self, Paginator},
+        errors::Result,
+    },
+    entity::prelude::*,
+    pagin,
+};
 
 pub async fn insert_key<C: ConnectionTrait>(
     db: &C,
@@ -55,4 +62,24 @@ pub async fn select_key_metas<C: ConnectionTrait>(
         .filter(KeyMetaColumn::KeyId.eq(key_id))
         .all(db)
         .await?)
+}
+
+pub async fn pagin_key_version<C: ConnectionTrait>(
+    db: &C,
+    key_id: &str,
+    paginator: &Paginator,
+) -> Result<Vec<KeyMetaModel>> {
+    pagin!(
+        db,
+        paginator,
+        KeyMetaEntity::find(),
+        [
+            KeyMetaColumn::Id,
+            KeyMetaColumn::KeyId,
+            KeyMetaColumn::Version,
+            KeyMetaColumn::PrimaryVersion,
+            KeyMetaColumn::CreatedAt,
+        ],
+        format!("pagin key version failed, key_id: {}", key_id)
+    )
 }

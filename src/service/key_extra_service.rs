@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use moka::future::Cache;
 use sea_orm::DbConn;
 
-use super::key_service;
+use super::key_service::{self, ALIAS_KEY_CACHE};
 use crate::{
     common::{
         configs::env_var_default,
@@ -110,7 +110,7 @@ pub async fn get_aliases(
             r
         } else {
             let aliaes =
-                key_extra_repository::select_key_alias(db, key_id).await?;
+                key_extra_repository::select_key_aliases(db, key_id).await?;
             KEY_ALIAS_CACHE
                 .insert(key_alias_cache_key, aliaes.clone())
                 .await;
@@ -138,6 +138,12 @@ pub async fn set_alias(db: &DbConn, key_id: &str, alias: &str) -> Result<()> {
             },
         )
         .await?;
+        ALIAS_KEY_CACHE
+            .remove(&format!("kms:keys:alias_key:{}", alias))
+            .await;
+        KEY_ALIAS_CACHE
+            .remove(&format!("kms:keys:key_alias:{}", key_id))
+            .await;
         Ok(())
     }
 }

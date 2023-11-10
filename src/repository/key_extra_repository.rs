@@ -24,7 +24,7 @@ pub async fn insert_or_update_key_meta<C: ConnectionTrait>(
     Ok(())
 }
 
-pub async fn select_key_alias<C: ConnectionTrait>(
+pub async fn select_key_aliases<C: ConnectionTrait>(
     db: &C,
     key_id: &str,
 ) -> Result<Vec<KeyAliasModel>> {
@@ -34,13 +34,23 @@ pub async fn select_key_alias<C: ConnectionTrait>(
         .await?)
 }
 
+pub async fn select_key_id_by_alias<C: ConnectionTrait>(
+    db: &C,
+    alias: &str,
+) -> Result<Option<KeyAliasModel>> {
+    Ok(KeyAliasEntity::find()
+        .filter(KeyAliasColumn::Alias.eq(alias))
+        .one(db)
+        .await?)
+}
+
 pub async fn set_key_alias<C: ConnectionTrait>(
     db: &C,
     model: &KeyAliasModel,
 ) -> Result<()> {
     KeyAliasEntity::insert(model.clone().into_active_model())
         .on_conflict(
-            OnConflict::columns([KeyAliasColumn::Alias, KeyAliasColumn::KeyId])
+            OnConflict::columns([KeyAliasColumn::Alias])
                 .update_column(KeyAliasColumn::KeyId)
                 .to_owned(),
         )

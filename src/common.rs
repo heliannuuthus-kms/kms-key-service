@@ -7,3 +7,4 @@ pub mod enums;
 pub mod errors;
 pub mod log;
 pub mod utils;
+pub mod macros;
