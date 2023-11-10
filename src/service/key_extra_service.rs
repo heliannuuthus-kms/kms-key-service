@@ -129,14 +129,11 @@ pub async fn set_alias(db: &DbConn, key_id: &str, alias: &str) -> Result<()> {
             key_id
         )))
     } else {
-        key_extra_repository::set_key_alias(
-            db,
-            &KeyAliasModel {
-                key_id: key_id.to_owned(),
-                alias: alias.to_owned(),
-                ..Default::default()
-            },
-        )
+        key_extra_repository::set_key_alias(db, &KeyAliasModel {
+            key_id: key_id.to_owned(),
+            alias: alias.to_owned(),
+            ..Default::default()
+        })
         .await?;
         ALIAS_KEY_CACHE
             .remove(&format!("kms:keys:alias_key:{}", alias))

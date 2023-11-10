@@ -26,6 +26,12 @@ pub struct Model {
     pub name: String,
     #[sea_orm(column_type = "Text", nullable)]
     pub description: Option<String>,
+    #[serde(skip_deserializing)]
+    #[sea_orm(default_expr = "Expr::current_timestamp()")]
+    pub updated_at: DateTime,
+    #[serde(skip_deserializing)]
+    #[sea_orm(default_expr = "Expr::current_timestamp()")]
+    pub created_at: DateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

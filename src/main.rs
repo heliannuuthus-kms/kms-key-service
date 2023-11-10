@@ -1,6 +1,6 @@
 use axum::{
     response::Html,
-    routing::{delete, get, patch, post, put},
+    routing::{delete, get, patch, post},
     Router,
 };
 use common::{cache::RdConn, configs::env_var};
@@ -55,7 +55,7 @@ async fn main() {
         .route("/aliases", get(list_key_alias));
     let kms_router = Router::new()
         .route("/", post(create_kms))
-        .route("/", put(set_kms))
+        .route("/:kms_id", patch(set_kms))
         .route("/:kms_id", get(get_kms))
         .route("/:kms_id", delete(destroy_kms));
     let app = Router::new()

@@ -34,7 +34,7 @@ pub async fn select_key_aliases<C: ConnectionTrait>(
         .await?)
 }
 
-pub async fn select_key_id_by_alias<C: ConnectionTrait>(
+pub async fn select_alias<C: ConnectionTrait>(
     db: &C,
     alias: &str,
 ) -> Result<Option<KeyAliasModel>> {

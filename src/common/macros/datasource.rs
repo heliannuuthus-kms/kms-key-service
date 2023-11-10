@@ -13,8 +13,11 @@ macro_rules! paginated_result {
             }
             std::cmp::Ordering::Greater => None,
         };
-        
-        Ok(PaginatedResult { next, data: $result })
+
+        Ok(PaginatedResult {
+            next,
+            data: $result,
+        })
     }};
 }
 

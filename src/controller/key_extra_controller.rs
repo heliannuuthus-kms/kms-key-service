@@ -2,7 +2,6 @@ use axum::{
     extract::{Path, State},
     response::IntoResponse,
 };
-use itertools::Itertools;
 
 use crate::{
     common::{
@@ -12,7 +11,7 @@ use crate::{
         errors::Result,
     },
     pojo::form::key_extra::{
-        KeyAliasDeleteForm, KeyAliasPatchForm, KeyMetaPatchForm,
+        KeyAliasCreateOrUpdateForm, KeyAliasDeleteForm, KeyMetaPatchForm,
     },
     service::{key_extra_service, key_service},
     States,
@@ -23,11 +22,14 @@ use crate::{
   path="",
   operation_id = "设置密钥元数据信息",
   context_path= "/keys/{key_id}/metas",
+  params(
+    ("key_id" = String, Path, description="kms 标识"),
+  ),
+  request_body = KeyMetaPatchForm,
   responses(
       (status = 200, description = "", body = ()),
       (status = 400, description = "illegal params")
   ),
-  request_body = KeyMetaPatchForm
 )]
 pub async fn set_key_meta(
     State(States { db, .. }): State<States>,
@@ -36,7 +38,7 @@ pub async fn set_key_meta(
 ) -> Result<impl IntoResponse> {
     tracing::info!("set key meta, key_id: {}, meta: {:?}", key_id, form);
     let mut model = key_extra_service::get_main_key_meta(&db, &key_id).await?;
-    form.merge(&mut model);
+    model.patched(form);
     key_extra_service::set_key_meta(&db, &model)
         .await
         .map(|_| axum::Json(model))
@@ -47,11 +49,14 @@ pub async fn set_key_meta(
     path="",
     operation_id = "获取主密钥元数据信息",
     context_path= "/keys/{key_id}/metas",
+    params(
+      ("key_id" = String, Path, description="kms 标识"),
+    ),
+    request_body = KeyMetaPatchForm,
     responses(
         (status = 200, description = "", body = KeyMetaModel),
         (status = 400, description = "illegal params")
     ),
-    request_body = KeyMetaPatchForm
   )]
 pub async fn get_key_meta(
     State(States { db, .. }): State<States>,
@@ -68,11 +73,14 @@ pub async fn get_key_meta(
     path="",
     operation_id = "分页查询主密钥版本信息",
     context_path= "/keys/{key_id}/versions",
+    params(
+        ("key_id" = String, Path, description="kms 标识"),
+      ),
+    request_body = KeyMetaPatchForm,
     responses(
         (status = 200, description = "", body = ()),
         (status = 400, description = "illegal params")
     ),
-    request_body = KeyMetaPatchForm
   )]
 pub async fn list_key_version(
     State(States { db, .. }): State<States>,
@@ -95,16 +103,18 @@ pub async fn list_key_version(
   path="",
   operation_id = "设置密钥别名",
   context_path= "/keys/{key_id}/aliases",
+  params(
+    ("key_id" = String, Path, description="kms 标识"),
+  ),request_body = KeyAliasCreateOrUpdateForm,
   responses(
       (status = 200, description = "", body = ()),
       (status = 400, description = "illegal params")
   ),
-  request_body = KeyAliasPatchForm
 )]
 pub async fn set_key_alias(
     State(States { db, .. }): State<States>,
     Path(key_id): Path<String>,
-    Json(form): Json<KeyAliasPatchForm>,
+    Json(form): Json<KeyAliasCreateOrUpdateForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("set key alias, key_id: {}, alias: {:?}", key_id, form);
     key_extra_service::set_alias(&db, &key_id, &form.alias).await?;
@@ -116,6 +126,9 @@ pub async fn set_key_alias(
   path="",
   operation_id = "批量删除密钥别名",
   context_path= "/keys/{key_id}/aliases",
+  params(
+    ("key_id" = String, Path, description="kms 标识"),
+  ),
   request_body = KeyAliasDeleteForm,
   responses(
       (status = 200, description = "", body = ()),
@@ -137,7 +150,10 @@ pub async fn remove_key_alias(
     path="",
     operation_id = "密钥元数据信息的分页查询",
     context_path= "/keys/{key_id}/aliases",
-    params(Paginator),
+    params(
+        ("kms_id" = String, Path, description="kms 标识"),
+        Paginator
+    ),
     responses(
         (status = 200, description = "", body = PaginatedKeyAliasModels),
         (status = 400, description = "illegal params")

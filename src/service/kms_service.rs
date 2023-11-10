@@ -61,8 +61,8 @@ pub async fn get_kms(db: &DbConn, kms_id: &str) -> Result<KmsModel> {
     })
 }
 
-pub async fn set_kms(db: &DbConn, model: KmsModel) -> Result<()> {
-    kms_repository::insert_or_update_kms_instance(db, &model).await?;
+pub async fn set_kms(db: &DbConn, model: &KmsModel) -> Result<()> {
+    kms_repository::insert_or_update_kms_instance(db, model).await?;
 
     KMS_INSTANCE_CACHE
         .remove(&format!("kms:secrets:kms:instance:{}", &model.kms_id))

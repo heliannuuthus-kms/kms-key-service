@@ -35,9 +35,9 @@ pub struct Model {
     pub usage: KeyUsage,
     pub rotation_interval: i64,
     pub creator: String,
-    pub material_expire_at: Option<DateTimeWithTimeZone>,
-    pub last_rotation_at: Option<DateTimeWithTimeZone>,
-    pub deletion_at: Option<DateTimeWithTimeZone>,
+    pub material_expire_at: Option<DateTime>,
+    pub last_rotation_at: Option<DateTime>,
+    pub deletion_at: Option<DateTime>,
     #[serde(skip_deserializing)]
     #[sea_orm(default_expr = "Expr::current_timestamp()")]
     pub updated_at: DateTime,

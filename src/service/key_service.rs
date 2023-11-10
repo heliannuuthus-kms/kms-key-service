@@ -416,7 +416,7 @@ pub async fn get_key_by_alias(db: &DbConn, alias: &str) -> Result<KeyModel> {
         Some(key) => Ok(key),
         None => {
             if let Some(key_alias) =
-                key_extra_repository::select_key_id_by_alias(db, alias).await?
+                key_extra_repository::select_alias(db, alias).await?
             {
                 let key = get_main_key(db, &key_alias.key_id).await?;
                 ALIAS_KEY_CACHE
