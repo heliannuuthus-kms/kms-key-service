@@ -9,7 +9,6 @@ jobs:
     uses: heliannuuthus/workflow/.github/workflows/call-rust-lint.yml@master
     with:
       clippy: false
-      toolchain: stable
   
 
   build:
