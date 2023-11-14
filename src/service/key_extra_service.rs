@@ -13,6 +13,7 @@ use crate::{
         errors::{Result, ServiceError},
     },
     entity::prelude::*,
+    paginated_result,
     repository::{key_extra_repository, key_repository},
 };
 
@@ -156,23 +157,12 @@ pub async fn remove_key_aliases(
 
 pub async fn list_key_aliases(
     db: &DbConn,
+    key_id: &str,
     paginator: Paginator,
 ) -> Result<PaginatedResult<Vec<KeyAliasModel>>> {
     let mut result =
-        key_extra_repository::pagin_key_alias(db, paginator.clone()).await?;
-    let limit = paginator.limit.unwrap_or(10) as usize;
-    // ge limit pop the last and the last is next, eq limit pop the last and the
-    // next is None, else None
-    let next = match result.len().cmp(&limit) {
-        std::cmp::Ordering::Less => {
-            result.pop().map(|tail| datasource::to_next(tail.id))
-        }
-        std::cmp::Ordering::Equal => {
-            result.pop();
-            None
-        }
-        std::cmp::Ordering::Greater => None,
-    };
+        key_extra_repository::pagin_key_alias(db, key_id, paginator.clone())
+            .await?;
 
-    Ok(PaginatedResult { next, data: result })
+    paginated_result!(result, paginator.limit.unwrap_or(10))
 }

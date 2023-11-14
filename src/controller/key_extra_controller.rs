@@ -161,10 +161,11 @@ pub async fn remove_key_alias(
   )]
 pub async fn list_key_alias(
     State(States { db, .. }): State<States>,
+    Path(key_id): Path<String>,
     Query(paginator): Query<Paginator>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("paging alias: {:?}", paginator);
-    key_extra_service::list_key_aliases(&db, paginator)
+    key_extra_service::list_key_aliases(&db, &key_id, paginator)
         .await
         .map(axum::Json)
 }

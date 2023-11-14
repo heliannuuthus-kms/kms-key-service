@@ -29,7 +29,7 @@ pub struct Model {
     pub key_type: KeyType,
     pub key_pair: Option<Json>,
     pub version: String,
-    #[serde(skip_deserializing)]
+    #[serde(skip)]
     #[sea_orm(default_expr = "Expr::current_timestamp()")]
     pub updated_at: DateTime,
     #[serde(skip_deserializing)]

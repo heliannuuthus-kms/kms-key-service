@@ -72,14 +72,15 @@ pub async fn pagin_key_version<C: ConnectionTrait>(
     pagin!(
         db,
         paginator,
-        KeyMetaEntity::find(),
-        [
-            KeyMetaColumn::Id,
-            KeyMetaColumn::KeyId,
-            KeyMetaColumn::Version,
-            KeyMetaColumn::PrimaryVersion,
-            KeyMetaColumn::CreatedAt,
-        ],
+        KeyMetaEntity::find()
+            .columns([
+                KeyMetaColumn::Id,
+                KeyMetaColumn::KeyId,
+                KeyMetaColumn::Version,
+                KeyMetaColumn::PrimaryVersion,
+                KeyMetaColumn::CreatedAt,
+            ])
+            .cursor_by(KeyMetaColumn::Id),
         format!("pagin key version failed, key_id: {}", key_id)
     )
 }

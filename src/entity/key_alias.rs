@@ -23,7 +23,7 @@ pub struct Model {
     pub id: i64,
     pub key_id: String,
     pub alias: String,
-    #[serde(skip_deserializing)]
+    #[serde(skip)]
     #[sea_orm(default_expr = "Expr::current_timestamp()")]
     pub updated_at: DateTime,
     #[serde(skip)]

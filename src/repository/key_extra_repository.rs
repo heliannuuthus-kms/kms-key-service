@@ -1,3 +1,4 @@
+use anyhow::Context;
 use sea_orm::{
     sea_query::OnConflict, ColumnTrait, ConnectionTrait, EntityTrait,
     IntoActiveModel, QueryFilter, QuerySelect,
@@ -6,6 +7,7 @@ use sea_orm::{
 use crate::{
     common::{datasource, datasource::Paginator, errors::Result},
     entity::prelude::*,
+    pagin,
 };
 
 pub async fn insert_or_update_key_meta<C: ConnectionTrait>(
@@ -69,31 +71,23 @@ pub async fn delete_key_aliases<C: ConnectionTrait>(
     if !alias.is_empty() {
         se = se.and(KeyAliasColumn::Alias.is_in(alias))
     };
-    KeyAliasEntity::delete_many().filter(se).exec(db).await?;
+    KeyAliasEntity::delete_many()
+        .filter(se)
+        .exec(db)
+        .await
+        .context(format!("delete key alias failed, key_id: {}", key_id))?;
     Ok(())
 }
 
 pub async fn pagin_key_alias<C: ConnectionTrait>(
     db: &C,
+    key_id: &str,
     paginator: Paginator,
 ) -> Result<Vec<KeyAliasModel>> {
-    let mut cursor = KeyAliasEntity::find()
-        .select_only()
-        .columns([
-            KeyAliasColumn::Id,
-            KeyAliasColumn::KeyId,
-            KeyAliasColumn::Alias,
-            KeyAliasColumn::CreatedAt,
-        ])
-        .cursor_by(KeyAliasColumn::Id);
-
-    if let Some(next) = paginator.next {
-        let id = datasource::from_next(&next)?;
-        cursor.after(id - 1);
-    };
-
-    Ok(cursor
-        .first(paginator.limit.unwrap_or(10) + 1)
-        .all(db)
-        .await?)
+    pagin!(
+        db,
+        paginator,
+        KeyAliasEntity::find().cursor_by(KeyMetaColumn::Id),
+        format!("pagin key aliases failed, key_id: {}", key_id)
+    )
 }

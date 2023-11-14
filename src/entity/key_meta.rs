@@ -38,7 +38,7 @@ pub struct Model {
     pub material_expire_at: Option<DateTime>,
     pub last_rotation_at: Option<DateTime>,
     pub deletion_at: Option<DateTime>,
-    #[serde(skip_deserializing)]
+    #[serde(skip)]
     #[sea_orm(default_expr = "Expr::current_timestamp()")]
     pub updated_at: DateTime,
     #[serde(skip_deserializing)]
