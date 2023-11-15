@@ -1,6 +1,6 @@
 use chrono::Duration;
 use lazy_static::lazy_static;
-use sea_orm::DbConn;
+use sea_orm::{DbConn, EntityTrait};
 
 use crate::{
     common::errors::{Result, ServiceError},

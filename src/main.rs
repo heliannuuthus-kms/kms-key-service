@@ -5,7 +5,9 @@ use axum::{
 };
 use common::{cache::RdConn, configs::env_var};
 use controller::{
-    key_controller::{create_key, import_key, import_key_params},
+    key_controller::{
+        create_key, import_key, import_key_params, list_kms_keys,
+    },
     key_extra_controller::{
         get_key_meta, list_key_alias, list_key_version, remove_key_alias,
         set_key_alias, set_key_meta,
@@ -57,7 +59,8 @@ async fn main() {
         .route("/", post(create_kms))
         .route("/:kms_id", patch(set_kms))
         .route("/:kms_id", get(get_kms))
-        .route("/:kms_id", delete(destroy_kms));
+        .route("/:kms_id", delete(destroy_kms))
+        .route("/:kms_id/keys", get(list_kms_keys));
     let app = Router::new()
         .nest("/kms", kms_router)
         .nest("/keys", key_router)

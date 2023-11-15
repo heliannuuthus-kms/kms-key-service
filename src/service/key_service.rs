@@ -337,6 +337,17 @@ pub async fn get_version_key(
         .clone())
 }
 
+pub async fn list_kms_keys(
+    db: &DbConn,
+    kms_id: &str,
+    paginator: &Paginator,
+) -> Result<PaginatedResult<Vec<KeyModel>>> {
+    paginated_result!(
+        key_repository::pagin_kms_keys(db, kms_id, paginator).await?,
+        paginator.limit.unwrap_or(10)
+    )
+}
+
 pub async fn list_key_versions(
     db: &DbConn,
     key_id: &str,

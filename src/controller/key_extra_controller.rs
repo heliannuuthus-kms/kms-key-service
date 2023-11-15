@@ -75,8 +75,8 @@ pub async fn get_key_meta(
     context_path= "/keys/{key_id}/versions",
     params(
         ("key_id" = String, Path, description="kms 标识"),
+        Paginator
       ),
-    request_body = KeyMetaPatchForm,
     responses(
         (status = 200, description = "", body = ()),
         (status = 400, description = "illegal params")
@@ -148,7 +148,7 @@ pub async fn remove_key_alias(
 #[utoipa::path(
     get,
     path="",
-    operation_id = "密钥元数据信息的分页查询",
+    operation_id = "密钥别名信息的分页查询",
     context_path= "/keys/{key_id}/aliases",
     params(
         ("kms_id" = String, Path, description="kms 标识"),

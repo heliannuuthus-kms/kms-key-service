@@ -84,3 +84,27 @@ pub async fn pagin_key_version<C: ConnectionTrait>(
         format!("pagin key version failed, key_id: {}", key_id)
     )
 }
+
+pub async fn pagin_kms_keys<C: ConnectionTrait>(
+    db: &C,
+    kms_id: &str,
+    paginator: &Paginator,
+) -> Result<Vec<KeyModel>> {
+    pagin!(
+        db,
+        paginator,
+        KeyEntity::find()
+            .select_only()
+            .columns([
+                KeyColumn::Id,
+                KeyColumn::KeyId,
+                KeyColumn::KmsId,
+                KeyColumn::Version,
+                KeyColumn::UpdatedAt,
+                KeyColumn::CreatedAt
+            ])
+            .filter(KeyColumn::KmsId.eq(kms_id))
+            .cursor_by(KeyColumn::Id),
+        format!("pagin kms keys failed, kms_id: {}", kms_id)
+    )
+}
