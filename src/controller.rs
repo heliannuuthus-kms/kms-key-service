@@ -71,7 +71,12 @@ pub mod kms_controller;
         key_extra_controller::remove_key_alias,
         key_extra_controller::list_key_alias,
         key_extra_controller::list_key_version,
-        
+        crypto_controller::encrypt,
+        crypto_controller::advance_encrypt,
+        crypto_controller::decrypt,
+        crypto_controller::advance_sign,
+        crypto_controller::sign,
+        crypto_controller::verify,
     )
 )]
 pub struct ApiDoc {}
