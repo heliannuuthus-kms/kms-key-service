@@ -1,11 +1,14 @@
-use chrono::{DateTime, Duration, FixedOffset};
+use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use utoipa::ToSchema;
 
-use crate::common::encrypto::types::{
-    KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage, WrappingKeyAlgorithm,
-    WrappingKeySpec,
+use crate::{
+    common::encrypto::types::{
+        KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage, WrappingKeyAlgorithm,
+        WrappingKeySpec,
+    },
+    entity::prelude::*,
 };
 
 #[serde_as]
@@ -44,4 +47,27 @@ pub struct KeyMaterialImportParamsResult {
     pub pub_key: String,
     #[serde_as(as = "DurationSeconds<String>")]
     pub expires_in: Duration,
+}
+
+#[derive(Serialize, Deserialize, Clone, ToSchema)]
+
+pub struct KeyVersionResult {
+    #[serde(skip)]
+    pub id: i64,
+    pub key_id: String,
+    pub version: String,
+    pub primary_version: String,
+    pub created_at: NaiveDateTime,
+}
+
+impl From<KeyMetaModel> for KeyVersionResult {
+    fn from(value: KeyMetaModel) -> Self {
+        KeyVersionResult {
+            id: value.id,
+            key_id: value.key_id,
+            version: value.version,
+            primary_version: value.primary_version,
+            created_at: value.created_at,
+        }
+    }
 }

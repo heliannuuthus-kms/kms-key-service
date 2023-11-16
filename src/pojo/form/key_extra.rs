@@ -7,25 +7,36 @@ pub struct KeyMetaPatchForm {
     pub description: Option<String>,
 }
 
-impl Patch for KeyMetaPatchForm {
-    type Into = KeyMetaModel;
-
-    fn merge(&self, into: &mut Self::Into) {
-        into.description = self.description.clone();
+impl Patch<KeyMetaPatchForm> for KeyMetaModel {
+    fn patched(&mut self, patched: KeyMetaPatchForm) -> &mut Self {
+        if let Some(description) = patched.description {
+            self.description = Some(description)
+        }
+        self
     }
+    // fn patched(&mut self, patcher: KeyMetaPatchForm) -> &mut Self {
+    //     patcher.description.map(|patched| {
+    //         match patched {
+    //             Some(description) =>  {
+    //                 match stringify!(self.description) {
+    //                     "Option" => {
+    //                         self.description = Some(description);
+    //                     },
+    //                     _ => {
+    //                         self.description = description;
+    //                     }
+    //                 }
+    //             },
+    //             None => {}
+    //         }
+    //     });
+    //     self
+    // }
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
-pub struct KeyAliasPatchForm {
+pub struct KeyAliasCreateOrUpdateForm {
     pub alias: String,
-}
-
-impl Patch for KeyAliasPatchForm {
-    type Into = KeyAliasModel;
-
-    fn merge(&self, into: &mut Self::Into) {
-        into.alias = self.alias.to_owned()
-    }
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Debug)]

@@ -1,13 +1,16 @@
 use axum::{
     response::Html,
-    routing::{delete, get, patch, post, put},
+    routing::{delete, get, patch, post},
     Router,
 };
 use common::{cache::RdConn, configs::env_var};
 use controller::{
-    key_controller::{create_key, import_key, import_key_params},
+    key_controller::{
+        create_key, import_key, import_key_params, list_kms_keys,
+    },
     key_extra_controller::{
-        list_key_alias, remove_key_alias, set_key_alias, set_key_meta,
+        get_key_meta, list_key_alias, list_key_version, remove_key_alias,
+        set_key_alias, set_key_meta,
     },
     kms_controller::{create_kms, destroy_kms, get_kms, set_kms},
     ApiDoc,
@@ -45,21 +48,23 @@ async fn main() {
         .route("/", post(create_key))
         .route("/import", post(import_key))
         .route("/import/params", get(import_key_params));
-    let key_meta_router = Router::new().route("/", post(set_key_meta));
-    let key_alias_router = Router::new()
-        .route("/", get(list_key_alias))
-        .route("/", patch(set_key_alias))
-        .route("/", delete(remove_key_alias));
+    let key_extra_router = Router::new()
+        .route("/metas", post(set_key_meta))
+        .route("/metas", get(get_key_meta))
+        .route("/versions", get(list_key_version))
+        .route("/aliases", patch(set_key_alias))
+        .route("/aliases", delete(remove_key_alias))
+        .route("/aliases", get(list_key_alias));
     let kms_router = Router::new()
         .route("/", post(create_kms))
-        .route("/", put(set_kms))
+        .route("/:kms_id", patch(set_kms))
         .route("/:kms_id", get(get_kms))
-        .route("/:kms_id", delete(destroy_kms));
+        .route("/:kms_id", delete(destroy_kms))
+        .route("/:kms_id/keys", get(list_kms_keys));
     let app = Router::new()
         .nest("/kms", kms_router)
         .nest("/keys", key_router)
-        .nest("/keys/:key_id/metas", key_meta_router)
-        .nest("/keys/:key_id/aliases", key_alias_router)
+        .nest("/keys/:key_id/", key_extra_router)
         .route(
             "/openapi",
             get(move || async { Html::from(Redoc::new(openapi).to_html()) }),

@@ -1,5 +1,5 @@
 [toolchain]
 # TODO: we can remove this toolchain file when TAIT hits stable.
 # Related issue: https://github.com/rust-lang/rust/issues/63063.
-channel = "stable"
-# channel = "nightly"
+# channel = "stable"
+channel = "nightly"

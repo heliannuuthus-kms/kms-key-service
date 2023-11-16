@@ -13,6 +13,7 @@ use super::{
 use crate::{
     common::{
         cache::{redis_get, redis_setex, RdConn},
+        datasource::{self, PaginatedResult, Paginator},
         encrypto::{
             algorithm::{self},
             types::{KeyOrigin, KeyState, KeyType},
@@ -25,14 +26,15 @@ use crate::{
         key::{AsymmtricKeyPair, SymmtricKeyPair},
         prelude::*,
     },
+    paginated_result,
     pojo::{
         form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
         result::key::{
             KeyCreateResult, KeyMaterialImportParams,
-            KeyMaterialImportParamsResult,
+            KeyMaterialImportParamsResult, KeyVersionResult,
         },
     },
-    repository::key_repository,
+    repository::{key_extra_repository, key_repository},
 };
 
 lazy_static! {
@@ -48,11 +50,11 @@ lazy_static! {
             .time_to_idle(Duration::minutes(5).to_std().unwrap())
             .time_to_live(Duration::minutes(30).to_std().unwrap())
             .build();
-    static ref KET_KMS_META_CACHE: Cache<String, HashMap<String, entity::key_meta::Model>> =
+    pub static ref ALIAS_KEY_CACHE: Cache<String, KeyModel> =
         moka::future::CacheBuilder::new(64 * 1024 * 1024)
-            .name("key_version_meta_cache")
-            .time_to_idle(Duration::minutes(30).to_std().unwrap())
-            .time_to_live(Duration::days(1).to_std().unwrap())
+            .name("alias_key_cache")
+            .time_to_idle(Duration::minutes(5).to_std().unwrap())
+            .time_to_live(Duration::minutes(30).to_std().unwrap())
             .build();
 }
 
@@ -335,6 +337,30 @@ pub async fn get_version_key(
         .clone())
 }
 
+pub async fn list_kms_keys(
+    db: &DbConn,
+    kms_id: &str,
+    paginator: &Paginator,
+) -> Result<PaginatedResult<Vec<KeyModel>>> {
+    paginated_result!(
+        key_repository::pagin_kms_keys(db, kms_id, paginator).await?,
+        paginator.limit.unwrap_or(10)
+    )
+}
+
+pub async fn list_key_versions(
+    db: &DbConn,
+    key_id: &str,
+    paginator: &Paginator,
+) -> Result<PaginatedResult<Vec<KeyVersionResult>>> {
+    let mut result = key_repository::pagin_key_version(db, key_id, paginator)
+        .await?
+        .into_iter()
+        .map(|model| model.into())
+        .collect::<Vec<KeyVersionResult>>();
+    paginated_result!(result, paginator.limit.unwrap_or(10))
+}
+
 pub async fn get_keys(
     db: &DbConn,
     key_id: &str,
@@ -393,4 +419,28 @@ pub async fn get_kms_keys(
         .await;
 
     Ok(kms_keys)
+}
+
+pub async fn get_key_by_alias(db: &DbConn, alias: &str) -> Result<KeyModel> {
+    let alias_key_cache_key = format!("kms:keys:alias_key:{}", alias);
+    match ALIAS_KEY_CACHE.get(&alias_key_cache_key).await {
+        Some(key) => Ok(key),
+        None => {
+            if let Some(key_alias) =
+                key_extra_repository::select_alias(db, alias).await?
+            {
+                let key = get_main_key(db, &key_alias.key_id).await?;
+                ALIAS_KEY_CACHE
+                    .insert(alias_key_cache_key, key.clone())
+                    .await;
+
+                Ok(key)
+            } else {
+                Err(ServiceError::NotFount(format!(
+                    "key is nonexistent, alias: {}",
+                    alias
+                )))
+            }
+        }
+    }
 }

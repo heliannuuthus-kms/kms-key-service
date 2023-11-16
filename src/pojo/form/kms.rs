@@ -3,8 +3,8 @@ use serde_with::serde_as;
 use utoipa::ToSchema;
 
 use crate::{
-    common::{errors::ServiceError, utils::generate_b62},
-    entity::kms,
+    common::{configs::Patch, errors::ServiceError, utils::generate_b62},
+    entity::{kms, prelude::KmsModel},
 };
 
 #[derive(Serialize, Deserialize, Debug, ToSchema)]
@@ -13,7 +13,7 @@ pub struct KmsCreateForm {
     description: Option<String>,
 }
 
-impl TryFrom<KmsCreateForm> for kms::Model {
+impl TryFrom<KmsCreateForm> for KmsModel {
     type Error = ServiceError;
 
     fn try_from(value: KmsCreateForm) -> Result<Self, Self::Error> {
@@ -28,21 +28,19 @@ impl TryFrom<KmsCreateForm> for kms::Model {
 
 #[serde_as]
 #[derive(Serialize, Deserialize, Debug, ToSchema)]
-pub struct KmsUpdateForm {
-    pub kms_id: String,
-    pub name: String,
+pub struct KmsPatchForm {
+    pub name: Option<String>,
     pub description: Option<String>,
 }
 
-impl TryFrom<KmsUpdateForm> for kms::Model {
-    type Error = ServiceError;
-
-    fn try_from(value: KmsUpdateForm) -> Result<Self, Self::Error> {
-        Ok(kms::Model {
-            kms_id: value.kms_id,
-            name: value.name,
-            description: value.description,
-            ..Default::default()
-        })
+impl Patch<KmsPatchForm> for KmsModel {
+    fn patched(&mut self, patched: KmsPatchForm) -> &mut Self {
+        if let Some(name) = patched.name {
+            self.name = name;
+        };
+        if let Some(description) = patched.description {
+            self.description = Some(description);
+        };
+        self
     }
 }

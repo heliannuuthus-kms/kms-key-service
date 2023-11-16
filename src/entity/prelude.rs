@@ -6,15 +6,11 @@ pub use super::{
         Entity as KeyEntity, Model as KeyModel,
     },
     key_alias::{
-        ActiveModel as KeyAliasActiveModel, Column as KeyAliasColumn,
-        Entity as KeyAliasEntity, Model as KeyAliasModel,
+        Column as KeyAliasColumn, Entity as KeyAliasEntity,
+        Model as KeyAliasModel,
     },
     key_meta::{
-        ActiveModel as KeyMetaActiveModel, Column as KeyMetaColumn,
-        Entity as KeyMetaEntity, Model as KeyMetaModel,
+        Column as KeyMetaColumn, Entity as KeyMetaEntity, Model as KeyMetaModel,
     },
-    kms::{
-        ActiveModel as KmsActiveModel, Column as KmsColumn,
-        Entity as KmsEntity, Model as KmsModel,
-    },
+    kms::{Column as KmsColumn, Entity as KmsEntity, Model as KmsModel},
 };

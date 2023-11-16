@@ -6,4 +6,5 @@ pub mod encrypto;
 pub mod enums;
 pub mod errors;
 pub mod log;
+pub mod macros;
 pub mod utils;

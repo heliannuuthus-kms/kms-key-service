@@ -7,9 +7,10 @@ use http::StatusCode;
 use crate::{
     common::{
         axum::Json,
+        configs::Patch,
         errors::{Result, ServiceError},
     },
-    pojo::form::kms::{KmsCreateForm, KmsUpdateForm},
+    pojo::form::kms::{KmsCreateForm, KmsPatchForm},
     repository::kms_repository,
     service::kms_service,
     States,
@@ -44,7 +45,7 @@ pub async fn get_kms(
 
 #[utoipa::path(
   post,
-  path="/",
+  path="",
   operation_id = "创建 kms 实例",
   request_body = KmsCreateForm,
   context_path= "/kms",
@@ -66,27 +67,26 @@ pub async fn create_kms(
 }
 
 #[utoipa::path(
-  put,
-  path="/",
+  patch,
+  path="",
   operation_id = "更新 kms 信息",
-  context_path= "/kms",
+  context_path= "/kms/{kms_id}",
+  params(
+    ("kms_id" = String, Path, description="kms 标识"),
+  ),
+  request_body = KmsPatchForm,
   responses(
       (status = 200, description = "密钥标识", body = KmsModel, content_type="application/json"),
       (status = 400, description = "illegal params")
   ),
-  request_body = KmsUpdateForm
 )]
 pub async fn set_kms(
     State(States { db, .. }): State<States>,
-    Json(form): Json<KmsUpdateForm>,
+    Path(kms_id): Path<String>,
+    Json(form): Json<KmsPatchForm>,
 ) -> Result<impl IntoResponse> {
-    let mut model = kms_service::get_kms(&db, &form.kms_id).await?;
-
-    if let Some(desc) = form.description {
-        model.description = Some(desc)
-    }
-
-    kms_service::set_kms(&db, model).await?;
+    let mut model = kms_service::get_kms(&db, &kms_id).await?;
+    kms_service::set_kms(&db, model.patched(form)).await?;
     Ok(StatusCode::OK.into_response())
 }
 
@@ -95,11 +95,13 @@ pub async fn set_kms(
   path="/{kms_id}",
   operation_id = "销毁 kms 实例",
   context_path= "/kms",
+  params(
+    ("kms_id" = String, Path, description="kms 标识"),
+  ),
   responses(
       (status = 200, description = "密钥标识",example = json!({"kms_id": "kms_id"}),body = String, content_type="application/json"),
       (status = 400, description = "illegal params")
-  ),
-  request_body = KmsUpdateForm
+  )
 )]
 pub async fn destroy_kms(
     State(States { db, .. }): State<States>,

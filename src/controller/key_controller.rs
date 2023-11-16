@@ -1,10 +1,14 @@
-use axum::{extract::State, response::IntoResponse};
+use axum::{
+    extract::{Path, State},
+    response::IntoResponse,
+};
 use http::StatusCode;
 use serde_json::json;
 
 use crate::{
     common::{
         axum::{Json, Query},
+        datasource::Paginator,
         errors::Result,
     },
     pojo::form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
@@ -73,4 +77,34 @@ pub async fn import_key(
     key_service::import_key_material(&db, &rd, &form).await?;
     Ok((StatusCode::OK, axum::Json(json!({"key_id": form.key_id})))
         .into_response())
+}
+
+#[utoipa::path(
+    get,
+    path="",
+    operation_id = "分页查询 kms 下密钥列表",
+    context_path= "/kms/{kms_id}/keys",
+    params(
+        ("kms_id" = String, Path, description="kms 标识"),
+        Paginator
+      ),
+    responses(
+        (status = 200, description = "", body = ()),
+        (status = 400, description = "illegal params")
+    ),
+  )]
+pub async fn list_kms_keys(
+    State(States { db, .. }): State<States>,
+    Path(kms_id): Path<String>,
+    Query(paginator): Query<Paginator>,
+) -> Result<impl IntoResponse> {
+    tracing::info!(
+        "pagin kms key, kms_id: {}, paginator: {:?}",
+        kms_id,
+        paginator
+    );
+
+    key_service::list_kms_keys(&db, &kms_id, &paginator)
+        .await
+        .map(axum::Json)
 }

@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use moka::future::Cache;
 use sea_orm::DbConn;
 
-use super::key_service;
+use super::key_service::{self, ALIAS_KEY_CACHE};
 use crate::{
     common::{
         configs::env_var_default,
@@ -13,6 +13,7 @@ use crate::{
         errors::{Result, ServiceError},
     },
     entity::prelude::*,
+    paginated_result,
     repository::{key_extra_repository, key_repository},
 };
 
@@ -110,7 +111,7 @@ pub async fn get_aliases(
             r
         } else {
             let aliaes =
-                key_extra_repository::select_key_alias(db, key_id).await?;
+                key_extra_repository::select_key_aliases(db, key_id).await?;
             KEY_ALIAS_CACHE
                 .insert(key_alias_cache_key, aliaes.clone())
                 .await;
@@ -129,15 +130,18 @@ pub async fn set_alias(db: &DbConn, key_id: &str, alias: &str) -> Result<()> {
             key_id
         )))
     } else {
-        key_extra_repository::set_key_alias(
-            db,
-            &KeyAliasModel {
-                key_id: key_id.to_owned(),
-                alias: alias.to_owned(),
-                ..Default::default()
-            },
-        )
+        key_extra_repository::set_key_alias(db, &KeyAliasModel {
+            key_id: key_id.to_owned(),
+            alias: alias.to_owned(),
+            ..Default::default()
+        })
         .await?;
+        ALIAS_KEY_CACHE
+            .remove(&format!("kms:keys:alias_key:{}", alias))
+            .await;
+        KEY_ALIAS_CACHE
+            .remove(&format!("kms:keys:key_alias:{}", key_id))
+            .await;
         Ok(())
     }
 }
@@ -153,23 +157,12 @@ pub async fn remove_key_aliases(
 
 pub async fn list_key_aliases(
     db: &DbConn,
+    key_id: &str,
     paginator: Paginator,
 ) -> Result<PaginatedResult<Vec<KeyAliasModel>>> {
     let mut result =
-        key_extra_repository::pagin_key_alias(db, paginator.clone()).await?;
-    let limit = paginator.limit.unwrap_or(10) as usize;
-    // ge limit pop the last and the last is next, eq limit pop the last and the
-    // next is None, else None
-    let next = match result.len().cmp(&limit) {
-        std::cmp::Ordering::Less => {
-            result.pop().map(|tail| datasource::to_next(tail.id))
-        }
-        std::cmp::Ordering::Equal => {
-            result.pop();
-            None
-        }
-        std::cmp::Ordering::Greater => None,
-    };
+        key_extra_repository::pagin_key_alias(db, key_id, paginator.clone())
+            .await?;
 
-    Ok(PaginatedResult { next, data: result })
+    paginated_result!(result, paginator.limit.unwrap_or(10))
 }

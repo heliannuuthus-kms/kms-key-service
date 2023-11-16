@@ -13,9 +13,10 @@ use crate::{
         form::{
             key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
             key_extra::{
-                KeyAliasDeleteForm, KeyAliasPatchForm, KeyMetaPatchForm,
+                KeyAliasCreateOrUpdateForm, KeyAliasDeleteForm,
+                KeyMetaPatchForm,
             },
-            kms::{KmsCreateForm, KmsUpdateForm},
+            kms::{KmsCreateForm, KmsPatchForm},
         },
         result::{
             key::{KeyCreateResult, KeyMaterialImportParamsResult},
@@ -36,14 +37,14 @@ pub mod kms_controller;
         KeyMetaModel,
         KmsResult,
         KmsCreateForm,
-        KmsUpdateForm,
+        KmsPatchForm,
         KeyCreateForm,
         KeyImportParamsQuery,
         KeyImportForm,
         KeyCreateResult,
         KeyMaterialImportParamsResult,
         KeyAliasDeleteForm,
-        KeyAliasPatchForm,
+        KeyAliasCreateOrUpdateForm,
         KeyMetaPatchForm,
         KeyUsage,
         KeyOrigin,
@@ -59,6 +60,7 @@ pub mod kms_controller;
         key_controller::create_key,
         key_controller::import_key,
         key_controller::import_key_params,
+        key_controller::list_kms_keys,
         kms_controller::create_kms,
         kms_controller::set_kms,
         kms_controller::get_kms,
@@ -67,6 +69,7 @@ pub mod kms_controller;
         key_extra_controller::set_key_alias,
         key_extra_controller::remove_key_alias,
         key_extra_controller::list_key_alias,
+        key_extra_controller::list_key_version,
     )
 )]
 pub struct ApiDoc {}
