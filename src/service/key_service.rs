@@ -14,7 +14,7 @@ use crate::{
     common::{
         cache::{redis_get, redis_setex, RdConn},
         datasource::{self, PaginatedResult, Paginator},
-        encrypto::{
+        crypto::{
             algorithm::{self},
             types::{KeyOrigin, KeyState, KeyType},
         },

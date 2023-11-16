@@ -3,7 +3,7 @@ use utoipa::OpenApi;
 use crate::{
     common::{
         datasource::{PaginatedKeyAliasModels, Paginator},
-        encrypto::types::{
+        crypto::types::{
             KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage,
             WrappingKeyAlgorithm, WrappingKeySpec,
         },
