@@ -6,7 +6,7 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::common::encrypto::types::KeyType;
+use crate::common::crypto::types::KeyType;
 
 #[derive(
     Clone,
