@@ -5,6 +5,9 @@ use axum::{
 };
 use common::{cache::RdConn, configs::env_var};
 use controller::{
+    crypto_controller::{
+        advance_encrypt, advance_sign, decrypt, encrypt, sign, verify,
+    },
     key_controller::{
         create_key, import_key, import_key_params, list_kms_keys,
     },
@@ -55,6 +58,13 @@ async fn main() {
         .route("/aliases", patch(set_key_alias))
         .route("/aliases", delete(remove_key_alias))
         .route("/aliases", get(list_key_alias));
+    let crypto_router = Router::new()
+        .route("/encrypt", post(advance_encrypt))
+        .route("/decrypt", post(decrypt))
+        .route("/encrypt/:version", post(encrypt))
+        .route("/sign", post(advance_sign))
+        .route("/sign/:version", post(sign))
+        .route("/verify", post(verify));
     let kms_router = Router::new()
         .route("/", post(create_kms))
         .route("/:kms_id", patch(set_kms))
@@ -65,6 +75,7 @@ async fn main() {
         .nest("/kms", kms_router)
         .nest("/keys", key_router)
         .nest("/keys/:key_id/", key_extra_router)
+        .nest("/keys/:key_id/", crypto_router)
         .route(
             "/openapi",
             get(move || async { Html::from(Redoc::new(openapi).to_html()) }),
