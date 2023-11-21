@@ -28,7 +28,7 @@ use crate::{
     },
     paginated_result,
     pojo::{
-        form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
+        form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery, KeyChangeStateBody},
         result::key::{
             KeyCreateResult, KeyMaterialImportParams,
             KeyMaterialImportParamsResult, KeyVersionResult,
@@ -153,6 +153,11 @@ pub async fn create_key(
     key_extra_service::set_key_meta(db, &key_meta).await?;
 
     Ok(result)
+}
+
+
+pub async fn change_state(db: &DbConn, body: &KeyChangeStateBody) {
+    key_extra_service::get_main_key_meta(db, key_id)
 }
 
 pub async fn generate_key_import_params(

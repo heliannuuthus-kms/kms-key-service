@@ -6,7 +6,8 @@ use serde_with::{serde_as, DurationSeconds};
 use utoipa::{IntoParams, ToSchema};
 
 use crate::common::crypto::types::{
-    KeyOrigin, KeySpec, KeyUsage, WrappingKeyAlgorithm, WrappingKeySpec,
+    KeyOrigin, KeySpec, KeyState, KeyUsage, WrappingKeyAlgorithm,
+    WrappingKeySpec,
 };
 #[serde_as]
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
@@ -49,4 +50,11 @@ impl Debug for KeyImportForm {
             .field("key_material_expire_in", &self.key_material_expire_in)
             .finish()
     }
+}
+
+#[derive(Serialize, Deserialize, Debug, ToSchema, Clone)]
+pub struct KeyChangeStateBody {
+    pub key_id: String,
+    pub from: KeyState,
+    pub to: KeyState,
 }
