@@ -12,8 +12,10 @@ use crate::{
         datasource::{self, PaginatedResult, Paginator},
         errors::{Result, ServiceError},
     },
+    crypto::types::KEY_STATE_MAP,
     entity::prelude::*,
     paginated_result,
+    pojo::form::key::KeyChangeStateBody,
     repository::{key_extra_repository, key_repository},
 };
 
@@ -30,6 +32,29 @@ lazy_static! {
             .time_to_idle(Duration::minutes(5).to_std().unwrap())
             .time_to_live(Duration::minutes(30).to_std().unwrap())
             .build();
+}
+
+pub async fn change_state(
+    db: &DbConn,
+    body: &KeyChangeStateBody,
+) -> Result<KeyMetaModel> {
+    // 待加分布式锁 redis rslock
+    let mut meta = get_main_key_meta(db, &body.key_id).await?;
+    if !meta.state.eq(&body.from) {
+        return Err(ServiceError::Unsupported(format!(
+            "current key state is {:?}",
+            meta.state
+        )));
+    }
+    if !KEY_STATE_MAP[*&meta.state as usize][*&body.to as usize] {
+        return Err(ServiceError::BadRequest(format!(
+            "key state can`t change, from {:?} to {:?}",
+            meta.state, body.to
+        )));
+    }
+    meta.state = body.to;
+    set_key_meta(db, &meta).await?;
+    Ok(meta)
 }
 
 pub async fn set_key_meta(db: &DbConn, model: &KeyMetaModel) -> Result<()> {

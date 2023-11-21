@@ -10,8 +10,11 @@ use crate::{
         datasource::Paginator,
         errors::Result,
     },
-    pojo::form::key_extra::{
-        KeyAliasCreateOrUpdateForm, KeyAliasDeleteForm, KeyMetaPatchForm,
+    pojo::form::{
+        key::KeyChangeStateBody,
+        key_extra::{
+            KeyAliasCreateOrUpdateForm, KeyAliasDeleteForm, KeyMetaPatchForm,
+        },
     },
     service::{key_extra_service, key_service},
     States,
@@ -42,6 +45,29 @@ pub async fn set_key_meta(
     key_extra_service::set_key_meta(&db, &model)
         .await
         .map(|_| axum::Json(model))
+}
+
+#[utoipa::path(
+    post,
+    path="/state",
+    operation_id = "切换密钥状态",
+    context_path= "/keys/{key_id}",
+    responses(
+        (status = 200, description = "密钥标识", body = KeyCreateResult, content_type="application/json"),
+        (status = 400, description = "illegal params")
+    ),
+    request_body = KeyCreateForm
+)]
+pub async fn change_key_state(
+    State(States { db, .. }): State<States>,
+    Path(key_id): Path<String>,
+    Json(mut body): Json<KeyChangeStateBody>,
+) -> Result<impl IntoResponse> {
+    tracing::info!("change key state, key_id: {}, body: {:?}", key_id, body);
+    body.key_id = key_id;
+    key_extra_service::change_state(&db, &body)
+        .await
+        .map(axum::Json)
 }
 
 #[utoipa::path(

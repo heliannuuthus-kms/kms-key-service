@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use utoipa::{IntoParams, ToSchema};
 
-use crate::common::crypto::types::{
+use crate::crypto::types::{
     KeyOrigin, KeySpec, KeyState, KeyUsage, WrappingKeyAlgorithm,
     WrappingKeySpec,
 };

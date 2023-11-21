@@ -11,9 +11,7 @@ use crate::{
         datasource::Paginator,
         errors::Result,
     },
-    pojo::form::key::{
-        KeyCreateForm, KeyImportForm, KeyImportParamsQuery, KeyChangeStateBody,
-    },
+    pojo::form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
     service::key_service,
     States,
 };
@@ -36,27 +34,6 @@ pub async fn create_key(
     tracing::info!("create master key, data: {:?}", form);
 
     key_service::create_key(&db, &form).await.map(axum::Json)
-}
-
-#[utoipa::path(
-    post,
-    path="/state",
-    operation_id = "切换密钥状态",
-    context_path= "/keys/{key_id}",
-    responses(
-        (status = 200, description = "密钥标识", body = KeyCreateResult, content_type="application/json"),
-        (status = 400, description = "illegal params")
-    ),
-    request_body = KeyCreateForm
-)]
-pub async fn change_key_state(
-    State(States { db, .. }): State<States>,
-    Path(key_id): Path<String>,
-    Json(body): Json<KeyChangeStateBody>,
-) -> Result<impl IntoResponse> {
-    tracing::info!("change key state, key_id: {}, body: {:?}", key_id, body);
-    body.key_id = key_id;
-    key_service::change_state(&db, &body).await.map(axum::Json)
 }
 
 #[utoipa::path(

@@ -1,12 +1,10 @@
 use utoipa::OpenApi;
 
 use crate::{
-    common::{
-        crypto::types::{
-            KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage,
-            WrappingKeyAlgorithm, WrappingKeySpec,
-        },
-        datasource::{PaginatedKeyAliasModels, Paginator},
+    common::datasource::{PaginatedKeyAliasModels, Paginator},
+    crypto::types::{
+        KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage, WrappingKeyAlgorithm,
+        WrappingKeySpec,
     },
     entity::prelude::*,
     pojo::{

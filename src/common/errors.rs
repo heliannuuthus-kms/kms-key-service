@@ -30,9 +30,7 @@ impl IntoResponse for ServiceError {
             ServiceError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
             ServiceError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
             ServiceError::NotFount(msg) => (StatusCode::NOT_FOUND, msg),
-            ServiceError::Unsupported(msg) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, msg)
-            }
+            ServiceError::Unsupported(msg) => (StatusCode::IM_A_TEAPOT, msg),
             ServiceError::InternalServer(e) => {
                 tracing::debug!("error backtrace: {}", e.backtrace());
                 (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
