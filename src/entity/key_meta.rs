@@ -23,6 +23,7 @@ pub struct Model {
     #[sea_orm(column_name = "_id", primary_key)]
     #[serde(skip)]
     pub id: i64,
+    pub kms_id: String,
     #[sea_orm(unique)]
     pub key_id: String,
     pub spec: KeySpec,

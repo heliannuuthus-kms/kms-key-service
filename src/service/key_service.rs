@@ -7,7 +7,7 @@ use sea_orm::*;
 use serde_json::json;
 
 use super::{
-    key_extra_service::{self, get_key_metas},
+    key_extra_service::{self, get_key_metas, get_main_key_meta},
     kms_service,
 };
 use crate::{
@@ -86,6 +86,7 @@ pub async fn create_key(
     };
 
     let mut key_meta = KeyMetaModel {
+        kms_id: kms_id.to_owned(),
         key_id: key_id.to_owned(),
         description: data.description.to_owned(),
         origin: data.origin,
@@ -346,6 +347,52 @@ pub async fn list_kms_keys(
         key_repository::pagin_kms_keys(db, kms_id, paginator).await?,
         paginator.limit.unwrap_or(10)
     )
+}
+
+pub async fn create_key_version(
+    db: &DbConn,
+    key_id: &str,
+) -> Result<KeyVersionResult> {
+    let mut meta: KeyMetaModel = get_main_key_meta(db, key_id).await?;
+
+    if KeyOrigin::External.eq(&meta.origin) {
+        return Err(ServiceError::Unsupported(
+            "external key is unsuppoted to create new version".to_owned(),
+        ));
+    }
+
+    let key_alg_meta = algorithm::select_meta(meta.spec);
+
+    let mut key = KeyModel {
+        kms_id: meta.kms_id.to_owned(),
+        key_id: meta.key_id.to_owned(),
+        key_type: key_alg_meta.key_type,
+        version: utils::uuid(),
+        ..Default::default()
+    };
+
+    let (left, right) = algorithm::generate_key(meta.spec)?;
+    let pri_key = utils::encode64(&left);
+    key.key_pair = Some(if KeyType::Symmetric.eq(&key_alg_meta.key_type) {
+        json!(entity::key::SymmtricKeyPair { key_pair: pri_key })
+    } else {
+        json!(entity::key::AsymmtricKeyPair {
+            private_key: pri_key,
+            public_key: utils::encode64(&right)
+        })
+    });
+    save_key(db, &key).await?;
+    // 缺少时间判断
+    meta.version = utils::uuid();
+    key_extra_service::set_key_meta(db, &meta).await?;
+
+    Ok(KeyVersionResult {
+        id: todo!(),
+        key_id: todo!(),
+        version: todo!(),
+        primary_version: todo!(),
+        created_at: todo!(),
+    })
 }
 
 pub async fn list_key_versions(
