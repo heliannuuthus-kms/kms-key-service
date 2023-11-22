@@ -1,4 +1,5 @@
 use anyhow::Context;
+use itertools::Itertools;
 use sea_orm::{
     sea_query::OnConflict, ColumnTrait, ConnectionTrait, EntityTrait,
     IntoActiveModel, QueryFilter, QuerySelect,
@@ -10,18 +11,32 @@ use crate::{
     pagin,
 };
 
-pub async fn insert_or_update_key_meta<C: ConnectionTrait>(
+pub async fn batch_insert_or_update_key_meta<C: ConnectionTrait>(
     db: &C,
-    model: &KeyMetaModel,
+    models: Vec<KeyMetaModel>,
 ) -> Result<()> {
-    KeyMetaEntity::insert(model.clone().into_active_model())
-        .on_conflict(
-            OnConflict::columns([KeyMetaColumn::KeyId, KeyMetaColumn::Version])
-                .update_column(KeyMetaColumn::Description)
-                .to_owned(),
-        )
-        .exec(db)
-        .await?;
+    KeyMetaEntity::insert_many(
+        models.into_iter().map(KeyMetaModel::into_active_model),
+    )
+    .on_conflict(
+        OnConflict::columns([
+            KeyMetaColumn::KmsId,
+            KeyMetaColumn::KeyId,
+            KeyMetaColumn::Version,
+        ])
+        .update_columns([
+            KeyMetaColumn::RotationInterval,
+            KeyMetaColumn::Description,
+            KeyMetaColumn::Version,
+            KeyMetaColumn::PrimaryVersion,
+            KeyMetaColumn::LastRotationAt,
+            KeyMetaColumn::MaterialExpireAt,
+            KeyMetaColumn::DeletionAt,
+        ])
+        .to_owned(),
+    )
+    .exec(db)
+    .await?;
 
     Ok(())
 }

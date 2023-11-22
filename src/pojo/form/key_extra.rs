@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use crate::{common::configs::Patch, entity::prelude::*};
+use crate::{
+    common::configs::Patch, crypto::types::KeyState, entity::prelude::*,
+};
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
 pub struct KeyMetaPatchForm {
     pub description: Option<String>,
@@ -42,4 +44,11 @@ pub struct KeyAliasCreateOrUpdateForm {
 #[derive(Serialize, Deserialize, ToSchema, Debug)]
 pub struct KeyAliasDeleteForm {
     pub aliases: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, ToSchema, Clone)]
+pub struct KeyChangeStateBody {
+    pub key_id: String,
+    pub from: KeyState,
+    pub to: KeyState,
 }

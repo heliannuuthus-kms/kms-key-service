@@ -10,11 +10,9 @@ use crate::{
         datasource::Paginator,
         errors::Result,
     },
-    pojo::form::{
-        key::KeyChangeStateBody,
-        key_extra::{
-            KeyAliasCreateOrUpdateForm, KeyAliasDeleteForm, KeyMetaPatchForm,
-        },
+    pojo::form::key_extra::{
+        KeyAliasCreateOrUpdateForm, KeyAliasDeleteForm, KeyChangeStateBody,
+        KeyMetaPatchForm,
     },
     service::{key_extra_service, key_service},
     States,
@@ -42,32 +40,9 @@ pub async fn set_key_meta(
     tracing::info!("set key meta, key_id: {}, meta: {:?}", key_id, form);
     let mut model = key_extra_service::get_main_key_meta(&db, &key_id).await?;
     model.patched(form);
-    key_extra_service::set_key_meta(&db, &model)
+    key_extra_service::set_key_meta(&db, model.clone())
         .await
         .map(|_| axum::Json(model))
-}
-
-#[utoipa::path(
-    post,
-    path="/state",
-    operation_id = "切换密钥状态",
-    context_path= "/keys/{key_id}",
-    responses(
-        (status = 200, description = "密钥标识", body = KeyCreateResult, content_type="application/json"),
-        (status = 400, description = "illegal params")
-    ),
-    request_body = KeyCreateForm
-)]
-pub async fn change_key_state(
-    State(States { db, .. }): State<States>,
-    Path(key_id): Path<String>,
-    Json(mut body): Json<KeyChangeStateBody>,
-) -> Result<impl IntoResponse> {
-    tracing::info!("change key state, key_id: {}, body: {:?}", key_id, body);
-    body.key_id = key_id;
-    key_extra_service::change_state(&db, &body)
-        .await
-        .map(axum::Json)
 }
 
 #[utoipa::path(
@@ -90,6 +65,30 @@ pub async fn get_key_meta(
 ) -> Result<impl IntoResponse> {
     tracing::info!("get key meta, key_id: {}", key_id);
     key_extra_service::get_main_key_meta(&db, &key_id)
+        .await
+        .map(axum::Json)
+}
+
+#[utoipa::path(
+    post,
+    path="/versions",
+    operation_id = "新增密钥版本",
+    context_path= "/keys/{key_id}",
+    params(
+        ("key_id" = String, Path, description="密钥标识"),
+    ),
+    responses(
+        (status = 200, description = "密钥新版本信息", body = KeyVersionResult),
+        (status = 400, description = "illegal params")
+    ),
+  )]
+pub async fn create_key_version(
+    State(States { db, .. }): State<States>,
+    Path(key_id): Path<String>,
+) -> Result<impl IntoResponse> {
+    tracing::info!("create key version, key_id: {}", key_id);
+
+    key_service::create_key_version(&db, &key_id)
         .await
         .map(axum::Json)
 }
@@ -131,7 +130,8 @@ pub async fn list_key_version(
   context_path= "/keys/{key_id}/aliases",
   params(
     ("key_id" = String, Path, description="kms 标识"),
-  ),request_body = KeyAliasCreateOrUpdateForm,
+  ),
+  request_body = KeyAliasCreateOrUpdateForm,
   responses(
       (status = 200, description = "", body = ()),
       (status = 400, description = "illegal params")
@@ -192,6 +192,29 @@ pub async fn list_key_alias(
 ) -> Result<impl IntoResponse> {
     tracing::info!("paging alias: {:?}", paginator);
     key_extra_service::list_key_aliases(&db, &key_id, paginator)
+        .await
+        .map(axum::Json)
+}
+
+#[utoipa::path(
+    post,
+    path="/state",
+    operation_id = "切换密钥状态",
+    context_path= "/keys/{key_id}",
+    responses(
+        (status = 200, description = "密钥元数据信息", body = KeyMetaModel, content_type="application/json"),
+        (status = 400, description = "illegal params")
+    ),
+    request_body = KeyChangeStateBody
+)]
+pub async fn change_key_state(
+    State(States { db, .. }): State<States>,
+    Path(key_id): Path<String>,
+    Json(mut body): Json<KeyChangeStateBody>,
+) -> Result<impl IntoResponse> {
+    tracing::info!("change key state, key_id: {}, body: {:?}", key_id, body);
+    body.key_id = key_id;
+    key_extra_service::change_state(&db, &body)
         .await
         .map(axum::Json)
 }

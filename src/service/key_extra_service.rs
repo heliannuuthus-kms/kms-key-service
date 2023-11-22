@@ -15,7 +15,7 @@ use crate::{
     crypto::types::KEY_STATE_MAP,
     entity::prelude::*,
     paginated_result,
-    pojo::form::key::KeyChangeStateBody,
+    pojo::form::key_extra::KeyChangeStateBody,
     repository::{key_extra_repository, key_repository},
 };
 
@@ -46,22 +46,33 @@ pub async fn change_state(
             meta.state
         )));
     }
-    if !KEY_STATE_MAP[*&meta.state as usize][*&body.to as usize] {
+    if !KEY_STATE_MAP[meta.state as usize][body.to as usize] {
         return Err(ServiceError::BadRequest(format!(
             "key state can`t change, from {:?} to {:?}",
             meta.state, body.to
         )));
     }
     meta.state = body.to;
-    set_key_meta(db, &meta).await?;
+    set_key_meta(db, meta.clone()).await?;
     Ok(meta)
 }
 
-pub async fn set_key_meta(db: &DbConn, model: &KeyMetaModel) -> Result<()> {
-    key_extra_repository::insert_or_update_key_meta(db, model).await?;
-    KEY_VERSION_META_CACHE
-        .remove(&format!("kms:keys:key_meta_version:{}", model.version))
-        .await;
+pub async fn set_key_meta(db: &DbConn, model: KeyMetaModel) -> Result<()> {
+    batch_set_key_meta(db, vec![model]);
+    Ok(())
+}
+
+pub async fn batch_set_key_meta(
+    db: &DbConn,
+    models: Vec<KeyMetaModel>,
+) -> Result<()> {
+    key_extra_repository::batch_insert_or_update_key_meta(db, models.clone())
+        .await?;
+    for model in models {
+        KEY_VERSION_META_CACHE
+            .remove(&format!("kms:keys:key_meta_version:{}", model.version))
+            .await;
+    }
     Ok(())
 }
 

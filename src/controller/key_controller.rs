@@ -108,28 +108,3 @@ pub async fn list_kms_keys(
         .await
         .map(axum::Json)
 }
-
-#[utoipa::path(
-    get,
-    path="/version",
-    operation_id = "新增 key 版本",
-    context_path= "/keys/{key_id}",
-    params(
-        ("key_id" = String, Path, description="密钥标识"),
-        Paginator
-      ),
-    responses(
-        (status = 200, description = "", body = ()),
-        (status = 400, description = "illegal params")
-    ),
-  )]
-pub async fn create_key_version(
-    State(States { db, .. }): State<States>,
-    Path(key_id): Path<String>,
-) -> Result<impl IntoResponse> {
-    tracing::info!("create key version, key_id: {}", key_id);
-
-    key_service::create_key_version(&db, &key_id)
-        .await
-        .map(axum::Json)
-}

@@ -22,7 +22,6 @@ use crate::{
         types::{KeyOrigin, KeyState, KeyType},
     },
     entity::{
-        self,
         key::{AsymmtricKeyPair, SymmtricKeyPair},
         prelude::*,
     },
@@ -122,16 +121,7 @@ pub async fn create_key(
     }
 
     if KeyOrigin::Kms.eq(&key_meta.origin) {
-        let (left, right) = algorithm::generate_key(data.spec)?;
-        let pri_key = utils::encode64(&left);
-        key.key_pair = Some(if KeyType::Symmetric.eq(&key_alg_meta.key_type) {
-            json!(entity::key::SymmtricKeyPair { key_pair: pri_key })
-        } else {
-            json!(entity::key::AsymmtricKeyPair {
-                private_key: pri_key,
-                public_key: utils::encode64(&right)
-            })
-        });
+        key.generate_key(data.spec)?;
     } else {
         if !algorithm::SUPPORTED_EXTERNAL_SPEC.contains(&data.spec) {
             return Err(ServiceError::Unsupported(format!(
@@ -139,7 +129,6 @@ pub async fn create_key(
                 data.spec,
             )));
         }
-
         key_meta.state = KeyState::PendingImport;
         result.key_state = key_meta.state
     };
@@ -151,7 +140,7 @@ pub async fn create_key(
         key.version
     );
     save_key(db, &key).await?;
-    key_extra_service::set_key_meta(db, &key_meta).await?;
+    key_extra_service::set_key_meta(db, key_meta).await?;
 
     Ok(result)
 }
@@ -353,46 +342,39 @@ pub async fn create_key_version(
     db: &DbConn,
     key_id: &str,
 ) -> Result<KeyVersionResult> {
-    let mut meta: KeyMetaModel = get_main_key_meta(db, key_id).await?;
+    let mut key_meta: KeyMetaModel = get_main_key_meta(db, key_id).await?;
 
-    if KeyOrigin::External.eq(&meta.origin) {
+    if KeyOrigin::External.eq(&key_meta.origin) {
         return Err(ServiceError::Unsupported(
             "external key is unsuppoted to create new version".to_owned(),
         ));
     }
 
-    let key_alg_meta = algorithm::select_meta(meta.spec);
+    let key_alg_meta = algorithm::select_meta(key_meta.spec);
 
     let mut key = KeyModel {
-        kms_id: meta.kms_id.to_owned(),
-        key_id: meta.key_id.to_owned(),
+        kms_id: key_meta.kms_id.to_owned(),
+        key_id: key_meta.key_id.to_owned(),
         key_type: key_alg_meta.key_type,
         version: utils::uuid(),
         ..Default::default()
     };
 
-    let (left, right) = algorithm::generate_key(meta.spec)?;
-    let pri_key = utils::encode64(&left);
-    key.key_pair = Some(if KeyType::Symmetric.eq(&key_alg_meta.key_type) {
-        json!(entity::key::SymmtricKeyPair { key_pair: pri_key })
-    } else {
-        json!(entity::key::AsymmtricKeyPair {
-            private_key: pri_key,
-            public_key: utils::encode64(&right)
-        })
-    });
+    key.generate_key(key_meta.spec)?;
+
+    let key_meta_new = key_meta.renew(&key);
+
     save_key(db, &key).await?;
     // 缺少时间判断
-    meta.version = utils::uuid();
-    key_extra_service::set_key_meta(db, &meta).await?;
+    key_meta.version = utils::uuid();
 
-    Ok(KeyVersionResult {
-        id: todo!(),
-        key_id: todo!(),
-        version: todo!(),
-        primary_version: todo!(),
-        created_at: todo!(),
-    })
+    key_extra_service::batch_set_key_meta(db, vec![
+        key_meta,
+        key_meta_new.clone(),
+    ])
+    .await?;
+
+    Ok(KeyVersionResult::from(key_meta_new.clone()))
 }
 
 pub async fn list_key_versions(
