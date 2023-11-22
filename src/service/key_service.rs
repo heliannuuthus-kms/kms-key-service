@@ -7,22 +7,21 @@ use sea_orm::*;
 use serde_json::json;
 
 use super::{
-    key_extra_service::{self, get_key_metas},
+    key_extra_service::{self, get_key_metas, get_main_key_meta},
     kms_service,
 };
 use crate::{
     common::{
         cache::{redis_get, redis_setex, RdConn},
-        crypto::{
-            algorithm::{self},
-            types::{KeyOrigin, KeyState, KeyType},
-        },
         datasource::{self, PaginatedResult, Paginator},
         errors::{Result, ServiceError},
         utils,
     },
+    crypto::{
+        algorithm::{self},
+        types::{KeyOrigin, KeyState, KeyType},
+    },
     entity::{
-        self,
         key::{AsymmtricKeyPair, SymmtricKeyPair},
         prelude::*,
     },
@@ -86,6 +85,7 @@ pub async fn create_key(
     };
 
     let mut key_meta = KeyMetaModel {
+        kms_id: kms_id.to_owned(),
         key_id: key_id.to_owned(),
         description: data.description.to_owned(),
         origin: data.origin,
@@ -121,16 +121,7 @@ pub async fn create_key(
     }
 
     if KeyOrigin::Kms.eq(&key_meta.origin) {
-        let (left, right) = algorithm::generate_key(data.spec)?;
-        let pri_key = utils::encode64(&left);
-        key.key_pair = Some(if KeyType::Symmetric.eq(&key_alg_meta.key_type) {
-            json!(entity::key::SymmtricKeyPair { key_pair: pri_key })
-        } else {
-            json!(entity::key::AsymmtricKeyPair {
-                private_key: pri_key,
-                public_key: utils::encode64(&right)
-            })
-        });
+        key.generate_key(data.spec)?;
     } else {
         if !algorithm::SUPPORTED_EXTERNAL_SPEC.contains(&data.spec) {
             return Err(ServiceError::Unsupported(format!(
@@ -138,7 +129,6 @@ pub async fn create_key(
                 data.spec,
             )));
         }
-
         key_meta.state = KeyState::PendingImport;
         result.key_state = key_meta.state
     };
@@ -150,7 +140,7 @@ pub async fn create_key(
         key.version
     );
     save_key(db, &key).await?;
-    key_extra_service::set_key_meta(db, &key_meta).await?;
+    key_extra_service::set_key_meta(db, key_meta).await?;
 
     Ok(result)
 }
@@ -346,6 +336,45 @@ pub async fn list_kms_keys(
         key_repository::pagin_kms_keys(db, kms_id, paginator).await?,
         paginator.limit.unwrap_or(10)
     )
+}
+
+pub async fn create_key_version(
+    db: &DbConn,
+    key_id: &str,
+) -> Result<KeyVersionResult> {
+    let mut key_meta: KeyMetaModel = get_main_key_meta(db, key_id).await?;
+
+    if KeyOrigin::External.eq(&key_meta.origin) {
+        return Err(ServiceError::Unsupported(
+            "external key is unsuppoted to create new version".to_owned(),
+        ));
+    }
+
+    let key_alg_meta = algorithm::select_meta(key_meta.spec);
+
+    let mut key = KeyModel {
+        kms_id: key_meta.kms_id.to_owned(),
+        key_id: key_meta.key_id.to_owned(),
+        key_type: key_alg_meta.key_type,
+        version: utils::uuid(),
+        ..Default::default()
+    };
+
+    key.generate_key(key_meta.spec)?;
+
+    let key_meta_new = key_meta.renew(&key);
+
+    save_key(db, &key).await?;
+    // 缺少时间判断
+    key_meta.version = utils::uuid();
+
+    key_extra_service::batch_set_key_meta(db, vec![
+        key_meta,
+        key_meta_new.clone(),
+    ])
+    .await?;
+
+    Ok(KeyVersionResult::from(key_meta_new.clone()))
 }
 
 pub async fn list_key_versions(

@@ -22,7 +22,7 @@ use crate::{
     operation_id = "创建密钥",
     context_path= "/keys",
     responses(
-        (status = 200, description = "密钥标识", body = KeyCreateResult, content_type="application/json"),
+        (status = 200, description = "密钥创建结果", body = KeyCreateResult, content_type="application/json"),
         (status = 400, description = "illegal params")
     ),
     request_body = KeyCreateForm

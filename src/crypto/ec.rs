@@ -99,12 +99,12 @@ impl KeyAlgorithmFactory for EcAlgorithmFactory {
 
 mod tests {
     use super::EcAlgorithmFactory;
-    use crate::common::{
+    use crate::{
+        common::utils,
         crypto::{
             algorithm::{self, KeyAlgorithmFactory},
             types::{WrappingKeyAlgorithm, WrappingKeySpec},
         },
-        utils,
     };
 
     #[test]

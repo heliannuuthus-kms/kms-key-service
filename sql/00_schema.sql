@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS t_key (
 );
 CREATE TABLE IF NOT EXISTS t_key_meta (
   _id BIGINT NOT NULL AUTO_INCREMENT,
+  kms_id VARCHAR(32) NOT NULL COMMENT "kms 标识",
   key_id VARCHAR(32) NOT NULL COMMENT "主密钥标识",
   spec ENUM(
     "AES_128",

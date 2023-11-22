@@ -4,7 +4,7 @@ use serde_with::{serde_as, DurationSeconds};
 use utoipa::ToSchema;
 
 use crate::{
-    common::crypto::types::{
+    crypto::types::{
         KeyOrigin, KeySpec, KeyState, KeyType, KeyUsage, WrappingKeyAlgorithm,
         WrappingKeySpec,
     },

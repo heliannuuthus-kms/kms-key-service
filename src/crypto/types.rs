@@ -172,20 +172,21 @@ impl From<KeySpec> for (Nid, usize) {
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "state")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum KeyState {
+    // 密钥默认处于 enable 状态
     #[default]
     #[sea_orm(string_value = "ENABLE")]
-    Enable,
-    // 密钥默认处于 enable 状态
-    #[sea_orm(string_value = "DISABLE")]
-    Disable,
+    Enable = 0,
     // 处于 Disable
     // 状态的密钥不可删除，不可使用（加解密，
     // 签名验签等），可查询，可创建别名
-    #[sea_orm(string_value = "PENDING_DELETION")]
-    PendingDeletion,
+    #[sea_orm(string_value = "DISABLE")]
+    Disable = 1,
     // 待删除的密钥，
+    #[sea_orm(string_value = "PENDING_DELETION")]
+    PendingDeletion = 2,
+    // 待导入的密钥
     #[sea_orm(string_value = "PENDING_IMPORT")]
-    PendingImport, // 待导入的密钥
+    PendingImport,
 }
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq, Default)]
@@ -238,3 +239,7 @@ impl From<WrappingKeySpec> for (Nid, usize) {
         }
     }
 }
+
+// 0.enable 1.disable 2.pendingdeletion 3.archived
+pub const KEY_STATE_MAP: [[bool; 3]; 3] =
+    [[true, true, true], [true, true, true], [false, true, true]];

@@ -12,8 +12,8 @@ use controller::{
         create_key, import_key, import_key_params, list_kms_keys,
     },
     key_extra_controller::{
-        get_key_meta, list_key_alias, list_key_version, remove_key_alias,
-        set_key_alias, set_key_meta,
+        change_key_state, create_key_version, get_key_meta, list_key_alias,
+        list_key_version, remove_key_alias, set_key_alias, set_key_meta,
     },
     kms_controller::{create_kms, destroy_kms, get_kms, set_kms},
     ApiDoc,
@@ -25,6 +25,7 @@ use utoipa_redoc::Redoc;
 
 mod common;
 mod controller;
+mod crypto;
 mod entity;
 mod pojo;
 mod repository;
@@ -52,8 +53,10 @@ async fn main() {
         .route("/import", post(import_key))
         .route("/import/params", get(import_key_params));
     let key_extra_router = Router::new()
+        .route("/state", post(change_key_state))
         .route("/metas", post(set_key_meta))
         .route("/metas", get(get_key_meta))
+        .route("/versions", post(create_key_version))
         .route("/versions", get(list_key_version))
         .route("/aliases", patch(set_key_alias))
         .route("/aliases", delete(remove_key_alias))
