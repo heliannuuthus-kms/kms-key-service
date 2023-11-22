@@ -10,11 +10,12 @@ use crate::{
     pagin,
 };
 
-pub async fn insert_key<C: ConnectionTrait>(
+pub async fn batch_insert_key<C: ConnectionTrait>(
     db: &C,
-    model: &KeyModel,
+    models: Vec<KeyModel>,
 ) -> Result<()> {
-    KeyEntity::insert(model.clone().into_active_model())
+    tracing::debug!("print insert many: {:?}", models);
+    KeyEntity::insert_many(models.into_iter().map(KeyModel::into_active_model))
         .exec(db)
         .await?;
     Ok(())

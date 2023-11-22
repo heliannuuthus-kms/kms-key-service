@@ -14,6 +14,7 @@ pub use super::{
     },
     key_meta::{
         Column as KeyMetaColumn, Entity as KeyMetaEntity, Model as KeyMetaModel,
+        ActiveModel as KeyMetaActiveModel
     },
     kms::{Column as KmsColumn, Entity as KmsEntity, Model as KmsModel},
 };
@@ -46,15 +47,20 @@ impl KeyModel {
 
 impl KeyMetaModel {
     pub fn renew(&mut self, key: &KeyModel) -> Self {
-        // old key version
-        self.last_rotation_at = Some(Utc::now().naive_utc());
-        self.primary_version = key.version.to_owned();
-
-        // new key version
-        let mut key_meta_new = self.clone();
-        key_meta_new.version = key.version.to_owned();
-        key_meta_new.primary_version = key.version.to_owned();
-
-        key_meta_new
+        KeyMetaModel {
+            kms_id: self.kms_id.to_owned(),
+            key_id: self.key_id.to_owned(),
+            spec: self.spec,
+            origin: self.origin,
+            description: self.description.to_owned(),
+            version: key.version.to_owned(),
+            primary_version: key.version.to_owned(),
+            state: self.state,
+            usage: self.usage,
+            rotation_interval: self.rotation_interval,
+            creator: self.creator.to_owned(),
+            material_expire_at: self.material_expire_at,
+            ..Default::default()
+        }
     }
 }

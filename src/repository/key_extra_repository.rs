@@ -1,8 +1,8 @@
 use anyhow::Context;
 use itertools::Itertools;
 use sea_orm::{
-    sea_query::OnConflict, ColumnTrait, ConnectionTrait, EntityTrait,
-    IntoActiveModel, QueryFilter, QuerySelect,
+    sea_query::OnConflict, ActiveValue::NotSet, ColumnTrait, ConnectionTrait,
+    EntityTrait, IntoActiveModel, QueryFilter, QuerySelect, Set,
 };
 
 use crate::{
@@ -15,9 +15,12 @@ pub async fn batch_insert_or_update_key_meta<C: ConnectionTrait>(
     db: &C,
     models: Vec<KeyMetaModel>,
 ) -> Result<()> {
-    KeyMetaEntity::insert_many(
-        models.into_iter().map(KeyMetaModel::into_active_model),
-    )
+    KeyMetaEntity::insert_many(models.into_iter().map(|model| {
+        let mut active = model.into_active_model();
+        active.created_at = NotSet;
+        active.updated_at = NotSet;
+        active
+    }))
     .on_conflict(
         OnConflict::columns([
             KeyMetaColumn::KmsId,

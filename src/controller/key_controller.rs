@@ -82,12 +82,12 @@ pub async fn import_key(
 #[utoipa::path(
     get,
     path="",
-    operation_id = "分页查询 kms 下密钥列表",
+    operation_id = "分页查询 kms 实例所有密钥列表",
     context_path= "/kms/{kms_id}/keys",
     params(
         ("kms_id" = String, Path, description="kms 标识"),
         Paginator
-      ),
+    ),
     responses(
         (status = 200, description = "", body = ()),
         (status = 400, description = "illegal params")

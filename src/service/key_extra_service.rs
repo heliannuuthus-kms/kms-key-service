@@ -58,7 +58,7 @@ pub async fn change_state(
 }
 
 pub async fn set_key_meta(db: &DbConn, model: KeyMetaModel) -> Result<()> {
-    batch_set_key_meta(db, vec![model]);
+    batch_set_key_meta(db, vec![model]).await?;
     Ok(())
 }
 

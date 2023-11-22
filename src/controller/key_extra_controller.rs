@@ -51,7 +51,7 @@ pub async fn set_key_meta(
     operation_id = "获取主密钥元数据信息",
     context_path= "/keys/{key_id}/metas",
     params(
-      ("key_id" = String, Path, description="kms 标识"),
+      ("key_id" = String, Path, description="密钥标识"),
     ),
     request_body = KeyMetaPatchForm,
     responses(
@@ -87,7 +87,6 @@ pub async fn create_key_version(
     Path(key_id): Path<String>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create key version, key_id: {}", key_id);
-
     key_service::create_key_version(&db, &key_id)
         .await
         .map(axum::Json)

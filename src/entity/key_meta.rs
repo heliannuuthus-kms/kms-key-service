@@ -24,7 +24,6 @@ pub struct Model {
     #[serde(skip)]
     pub id: i64,
     pub kms_id: String,
-    #[sea_orm(unique)]
     pub key_id: String,
     pub spec: KeySpec,
     pub origin: KeyOrigin,

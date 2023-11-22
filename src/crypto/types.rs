@@ -47,10 +47,10 @@ pub enum KeyAlgorithm {
 pub enum KeyUsage {
     #[default]
     #[sea_orm(string_value = "ENCRYPT/DECRYPT")]
-    #[serde(rename = "encrypt/decrypt")]
+    #[serde(rename = "ENCRYPT/DECRYPT")]
     EncryptAndDecrypt,
     #[sea_orm(string_value = "SIGN/VERIFY")]
-    #[serde(rename = "sign/verify")]
+    #[serde(rename = "SIGN/VERIFY")]
     SignAndVerify,
 }
 
