@@ -11,32 +11,14 @@ use crate::{
     pagin,
 };
 
-// batch insert metas
-pub async fn insert_or_update_key_metas<C: ConnectionTrait>(
+pub async fn select_alias<C: ConnectionTrait>(
     db: &C,
-    models: Vec<KeyMetaModel>,
-) -> Result<()> {
-    KeyMetaEntity::insert_many(models.into_iter().map(|model| {
-        let mut active = model.into_active_model();
-        active.created_at = NotSet;
-        active.updated_at = NotSet;
-        active
-    }))
-    .on_conflict(
-        OnConflict::columns([KeyMetaColumn::KeyId, KeyMetaColumn::Version])
-            .update_columns([
-                KeyMetaColumn::RotationInterval,
-                KeyMetaColumn::Description,
-                KeyMetaColumn::PrimaryVersion,
-                KeyMetaColumn::LastRotationAt,
-                KeyMetaColumn::MaterialExpireAt,
-                KeyMetaColumn::DeletionAt,
-            ])
-            .to_owned(),
-    )
-    .exec(db)
-    .await?;
-    Ok(())
+    alias: &str,
+) -> Result<Option<KeyAliasModel>> {
+    Ok(KeyAliasEntity::find()
+        .filter(KeyAliasColumn::Alias.eq(alias))
+        .one(db)
+        .await?)
 }
 
 pub async fn select_key_aliases<C: ConnectionTrait>(
@@ -46,16 +28,6 @@ pub async fn select_key_aliases<C: ConnectionTrait>(
     Ok(KeyAliasEntity::find()
         .filter(KeyAliasColumn::KeyId.eq(key_id))
         .all(db)
-        .await?)
-}
-
-pub async fn select_alias<C: ConnectionTrait>(
-    db: &C,
-    alias: &str,
-) -> Result<Option<KeyAliasModel>> {
-    Ok(KeyAliasEntity::find()
-        .filter(KeyAliasColumn::Alias.eq(alias))
-        .one(db)
         .await?)
 }
 

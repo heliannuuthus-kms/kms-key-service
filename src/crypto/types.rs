@@ -1,9 +1,11 @@
-use std::{self, option::Option};
+use std::{self, fmt::Display, option::Option};
 
 use openssl::{cipher::Cipher, nid::Nid};
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+
+use crate::common::errors::{Result, ServiceError};
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq, Debug, Copy)]
 pub enum KeyAlgorithm {
@@ -189,7 +191,7 @@ pub enum KeyState {
     PendingImport,
 }
 
-#[derive(Deserialize, Serialize, Clone, PartialEq, Eq, Default)]
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Default)]
 pub enum KeyStateStatus {
     #[default]
     Success,
@@ -203,6 +205,43 @@ pub enum KeyStateStatus {
     PendingPendingImport,
     // 由于 Pending Import 失败
     PendingStateModifiedFailed, // 操作密钥信息导致前后状态不符合逻辑
+}
+
+impl Display for KeyStateStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KeyStateStatus::Success => write!(f, "SUCCESS"),
+            KeyStateStatus::RejectedEnable => write!(f, "REJECTED.ENABLE"),
+            KeyStateStatus::RejectedDisable => write!(f, "REJECTED.DISABLE"),
+            KeyStateStatus::PendingPendingDeletion => {
+                write!(f, "PENDDING.PENDDING_DELETION")
+            }
+            KeyStateStatus::PendingPendingImport => {
+                write!(f, "PENDDING.PENDDING_IMPORT")
+            }
+            KeyStateStatus::PendingStateModifiedFailed => {
+                write!(f, "PENDDING.STATE_MODIFIED_FAILED")
+            }
+        }
+    }
+}
+
+impl From<KeyState> for KeyStateStatus {
+    fn from(value: KeyState) -> Self {
+        match value {
+            KeyState::Enable => KeyStateStatus::RejectedEnable,
+            KeyState::Disable => KeyStateStatus::RejectedDisable,
+            KeyState::PendingDeletion => KeyStateStatus::PendingPendingDeletion,
+            KeyState::PendingImport => KeyStateStatus::PendingPendingImport,
+        }
+    }
+}
+
+pub fn assert_state(expect: KeyState, actual: KeyState) -> Result<()> {
+    if !KEY_STATE_MAP[expect as usize][actual as usize] {
+        return Err(ServiceError::StateChange(actual.into()));
+    }
+    Ok(())
 }
 
 #[derive(
