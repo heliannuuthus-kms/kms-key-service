@@ -11,16 +11,6 @@ use crate::{
     pagin,
 };
 
-pub async fn select_key_aliases<C: ConnectionTrait>(
-    db: &C,
-    key_id: &str,
-) -> Result<Vec<KeyAliasModel>> {
-    Ok(KeyAliasEntity::find()
-        .filter(KeyAliasColumn::KeyId.eq(key_id))
-        .all(db)
-        .await?)
-}
-
 pub async fn select_alias<C: ConnectionTrait>(
     db: &C,
     alias: &str,
@@ -28,6 +18,16 @@ pub async fn select_alias<C: ConnectionTrait>(
     Ok(KeyAliasEntity::find()
         .filter(KeyAliasColumn::Alias.eq(alias))
         .one(db)
+        .await?)
+}
+
+pub async fn select_key_aliases<C: ConnectionTrait>(
+    db: &C,
+    key_id: &str,
+) -> Result<Vec<KeyAliasModel>> {
+    Ok(KeyAliasEntity::find()
+        .filter(KeyAliasColumn::KeyId.eq(key_id))
+        .all(db)
         .await?)
 }
 

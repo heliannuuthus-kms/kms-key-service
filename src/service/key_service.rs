@@ -282,6 +282,60 @@ pub async fn import_key_material(
     Ok(())
 }
 
+pub async fn create_key_version(
+    db: &DbConn,
+    key_id: &str,
+) -> Result<KeyVersionResult> {
+    let mut key_meta: KeyMetaModel = get_main_key_meta(db, key_id).await?;
+
+    // judge origin
+    if KeyOrigin::External.eq(&key_meta.origin) {
+        return Err(ServiceError::Unsupported(
+            "external key is unsuppoted to create new version".to_owned(),
+        ));
+    }
+
+    // judge state
+    types::assert_state(KeyState::Enable, key_meta.state)?;
+
+    let key_alg_meta = algorithm::select_meta(key_meta.spec);
+
+    let mut key = KeyModel {
+        kms_id: key_meta.kms_id.to_owned(),
+        key_id: key_meta.key_id.to_owned(),
+        key_type: key_alg_meta.key_type,
+        version: utils::uuid(),
+        ..Default::default()
+    };
+
+    key.generate_key(key_meta.spec)?;
+
+    save_key(db, &key).await?;
+    // 缺少时间判断
+    key_meta.version = utils::uuid();
+
+    let key_meta_new = key_meta.renew(&key);
+
+    let mut key_metas = get_key_metas(db, key_id)
+        .await?
+        .into_iter()
+        .map(|(version, mut meta)| {
+            if version.eq(&meta.primary_version) {
+                // old key version
+                meta.last_rotation_at = Some(Utc::now().naive_utc());
+            };
+            meta.primary_version = key.version.to_owned();
+            meta
+        })
+        .collect_vec();
+
+    key_metas.push(key_meta_new.clone());
+    tracing::debug!("print create new key version: {:?}", key_metas);
+    key_meta_service::batch_set_key_meta(db, key_metas).await?;
+
+    Ok(KeyVersionResult::from(key_meta_new))
+}
+
 async fn save_key(db: &DbConn, model: &KeyModel) -> Result<()> {
     batch_save_key(db, vec![model.clone()]).await
 }
@@ -344,60 +398,6 @@ pub async fn list_kms_keys(
     )
 }
 
-pub async fn create_key_version(
-    db: &DbConn,
-    key_id: &str,
-) -> Result<KeyVersionResult> {
-    let mut key_meta: KeyMetaModel = get_main_key_meta(db, key_id).await?;
-
-    // judge origin
-    if KeyOrigin::External.eq(&key_meta.origin) {
-        return Err(ServiceError::Unsupported(
-            "external key is unsuppoted to create new version".to_owned(),
-        ));
-    }
-
-    // judge state
-    types::assert_state(KeyState::Enable, key_meta.state)?;
-
-    let key_alg_meta = algorithm::select_meta(key_meta.spec);
-
-    let mut key = KeyModel {
-        kms_id: key_meta.kms_id.to_owned(),
-        key_id: key_meta.key_id.to_owned(),
-        key_type: key_alg_meta.key_type,
-        version: utils::uuid(),
-        ..Default::default()
-    };
-
-    key.generate_key(key_meta.spec)?;
-
-    save_key(db, &key).await?;
-    // 缺少时间判断
-    key_meta.version = utils::uuid();
-
-    let key_meta_new = key_meta.renew(&key);
-
-    let mut key_metas = get_key_metas(db, key_id)
-        .await?
-        .into_iter()
-        .map(|(version, mut meta)| {
-            if version.eq(&meta.primary_version) {
-                // old key version
-                meta.last_rotation_at = Some(Utc::now().naive_utc());
-            };
-            meta.primary_version = key.version.to_owned();
-            meta
-        })
-        .collect_vec();
-
-    key_metas.push(key_meta_new.clone());
-    tracing::debug!("print create new key version: {:?}", key_metas);
-    key_meta_service::batch_set_key_meta(db, key_metas).await?;
-
-    Ok(KeyVersionResult::from(key_meta_new))
-}
-
 pub async fn list_key_versions(
     db: &DbConn,
     key_id: &str,
@@ -434,41 +434,6 @@ pub async fn get_keys(
 
         Ok(ks.clone())
     }
-}
-
-pub async fn get_kms_keys(
-    db: &DbConn,
-    kms_id: &str,
-) -> Result<HashMap<String, Vec<KeyModel>>> {
-    let key_index_cache_id = format!("kms:keys:key_index:{}", kms_id);
-
-    let cached_keys = if let Some(cached_keys) =
-        KEY_INDEX_CACHE.get(&key_index_cache_id).await
-    {
-        cached_keys
-    } else {
-        let _kms_instance = kms_service::get_kms(db, kms_id).await?;
-        key_repository::select_kms_key_ids(db, kms_id)
-            .await?
-            .into_iter()
-            .map(|model| model.key_id)
-            .collect::<HashSet<String>>()
-    };
-
-    let mut kms_keys: HashMap<String, Vec<KeyModel>> = HashMap::new();
-    for key_id in cached_keys.iter() {
-        let keys = get_keys(db, key_id).await?;
-        kms_keys.insert(
-            key_id.to_owned(),
-            keys.into_values().collect::<Vec<KeyModel>>(),
-        );
-    }
-
-    KEY_INDEX_CACHE
-        .insert(key_index_cache_id, cached_keys)
-        .await;
-
-    Ok(kms_keys)
 }
 
 pub async fn get_key_by_alias(db: &DbConn, alias: &str) -> Result<KeyModel> {
