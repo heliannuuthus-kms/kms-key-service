@@ -21,12 +21,12 @@ lazy_static! {
             .build();
 }
 
-pub async fn create_kms(db: &DbConn, model: &KmsModel) -> Result<KmsResult> {
-    kms_repository::insert_or_update_kms_instance(db, model).await?;
+pub async fn create_kms(db: &DbConn, model: KmsModel) -> Result<KmsResult> {
+    kms_repository::insert_or_update_kms_instance(db, &model).await?;
     Ok(KmsResult {
-        kms_id: model.kms_id.to_string(),
-        name: model.name.to_string(),
-        description: model.description.clone(),
+        kms_id: model.kms_id.to_owned(),
+        name: model.name.to_owned(),
+        description: model.description.to_owned(),
     })
 }
 

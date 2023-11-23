@@ -9,10 +9,11 @@ CREATE TABLE IF NOT EXISTS t_kms (
   UNIQUE uniq_key_id(kms_id),
   INDEX idx_kms_name(kms_id)
 );
+
 CREATE TABLE IF NOT EXISTS t_key (
   _id BIGINT NOT NULL AUTO_INCREMENT,
+  kms_id VARCHAR(32) NOT NULL COMMENT "kms 实例标识",
   key_id VARCHAR(32) NOT NULL COMMENT "主密钥标识",
-  kms_id VARCHAR(32) NOT NULL COMMENT "实例标识",
   key_type ENUM('SYMMETRIC', "ASYMMETRIC", "UNKNWON") NOT NULL COMMENT "密钥类型 0: Symmetric，1: Asymmetric, 2: Unknown",
   key_pair JSON COMMENT "密钥内容",
   `version` VARCHAR(32) NOT NULL COMMENT "密钥版本",
@@ -23,9 +24,10 @@ CREATE TABLE IF NOT EXISTS t_key (
   UNIQUE uniq_key_id_version(key_id, `version`),
   INDEX idx_kms_id(kms_id)
 );
+
 CREATE TABLE IF NOT EXISTS t_key_meta (
   _id BIGINT NOT NULL AUTO_INCREMENT,
-  kms_id VARCHAR(32) NOT NULL COMMENT "kms 标识",
+  kms_id VARCHAR(32) NOT NULL COMMENT "kms 实例标识",
   key_id VARCHAR(32) NOT NULL COMMENT "主密钥标识",
   spec ENUM(
     "AES_128",

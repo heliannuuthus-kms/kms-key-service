@@ -30,10 +30,10 @@ pub struct Model {
     pub key_pair: Option<Json>,
     pub version: String,
     #[serde(skip)]
-    #[sea_orm(default_expr = "Expr::current_timestamp()")]
+    #[sea_orm(updated_at, default_current_timestamp)]
     pub updated_at: DateTime,
     #[serde(skip_deserializing)]
-    #[sea_orm(default_expr = "Expr::current_timestamp()")]
+    #[sea_orm(created_at, default_current_timestamp)]
     pub created_at: DateTime,
 }
 
@@ -45,6 +45,8 @@ impl Debug for Model {
             .field("kms_id", &self.kms_id)
             .field("key_type", &self.key_type)
             .field("version", &self.version)
+            .field("updated_at", &self.updated_at)
+            .field("created_at", &self.created_at)
             .finish()
     }
 }

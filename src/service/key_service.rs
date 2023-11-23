@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use chrono::{Duration, Local};
+use chrono::{Duration, Local, Utc};
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use moka::future::Cache;
 use sea_orm::*;
@@ -102,6 +103,7 @@ pub async fn create_key(
         key_spec: key_meta.spec,
         key_usage: key_meta.usage,
         key_origin: key_meta.origin,
+        version: key_meta.primary_version.to_owned(),
         primary_key_version: key_meta.primary_version.to_owned(),
         ..Default::default()
     };
@@ -281,15 +283,19 @@ pub async fn import_key_material(
 }
 
 async fn save_key(db: &DbConn, model: &KeyModel) -> Result<()> {
-    key_repository::insert_key(db, model).await?;
+    batch_save_key(db, vec![model.clone()]).await
+}
 
-    KEY_INDEX_CACHE
-        .remove(&format!("kms:keys:key_index:{}", model.kms_id))
-        .await;
-    KEY_VERSION_CACHE
-        .remove(&format!("kms:keys:key_version:{}", model.key_id))
-        .await;
-
+async fn batch_save_key(db: &DbConn, models: Vec<KeyModel>) -> Result<()> {
+    key_repository::insert_keys(db, models.clone()).await?;
+    for model in models {
+        KEY_INDEX_CACHE
+            .remove(&format!("kms:keys:key_index:{}", model.kms_id))
+            .await;
+        KEY_VERSION_CACHE
+            .remove(&format!("kms:keys:key_version:{}", model.key_id))
+            .await;
+    }
     Ok(())
 }
 
@@ -362,19 +368,30 @@ pub async fn create_key_version(
 
     key.generate_key(key_meta.spec)?;
 
-    let key_meta_new = key_meta.renew(&key);
-
     save_key(db, &key).await?;
     // 缺少时间判断
     key_meta.version = utils::uuid();
 
-    key_extra_service::batch_set_key_meta(db, vec![
-        key_meta,
-        key_meta_new.clone(),
-    ])
-    .await?;
+    let key_meta_new = key_meta.renew(&key);
 
-    Ok(KeyVersionResult::from(key_meta_new.clone()))
+    let mut key_metas = get_key_metas(db, key_id)
+        .await?
+        .into_iter()
+        .map(|(version, mut meta)| {
+            if version.eq(&meta.primary_version) {
+                // old key version
+                meta.last_rotation_at = Some(Utc::now().naive_utc());
+            };
+            meta.primary_version = key.version.to_owned();
+            meta
+        })
+        .collect_vec();
+
+    key_metas.push(key_meta_new.clone());
+    tracing::debug!("print create new key version: {:?}", key_metas);
+    key_extra_service::batch_set_key_meta(db, key_metas).await?;
+
+    Ok(KeyVersionResult::from(key_meta_new))
 }
 
 pub async fn list_key_versions(

@@ -60,7 +60,7 @@ pub async fn create_kms(
 ) -> Result<impl IntoResponse> {
     tracing::info!("创建 kms 实例 {:?}", form);
 
-    Ok(kms_service::create_kms(&db, &form.try_into()?)
+    Ok(kms_service::create_kms(&db, form.try_into()?)
         .await
         .map(Json)?
         .into_response())
