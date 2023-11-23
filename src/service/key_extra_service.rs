@@ -66,7 +66,7 @@ pub async fn batch_set_key_meta(
     db: &DbConn,
     models: Vec<KeyMetaModel>,
 ) -> Result<()> {
-    key_extra_repository::batch_insert_or_update_key_meta(db, models.clone())
+    key_extra_repository::insert_or_update_key_metas(db, models.clone())
         .await?;
     for model in models {
         KEY_VERSION_META_CACHE
@@ -166,7 +166,7 @@ pub async fn set_alias(db: &DbConn, key_id: &str, alias: &str) -> Result<()> {
             key_id
         )))
     } else {
-        key_extra_repository::set_key_alias(db, &KeyAliasModel {
+        key_extra_repository::set_key_alias(db, KeyAliasModel {
             key_id: key_id.to_owned(),
             alias: alias.to_owned(),
             ..Default::default()

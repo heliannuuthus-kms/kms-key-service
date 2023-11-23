@@ -2,7 +2,7 @@ use anyhow::Context;
 use itertools::Itertools;
 use sea_orm::{
     sea_query::OnConflict, ActiveValue::NotSet, ColumnTrait, ConnectionTrait,
-    EntityTrait, IntoActiveModel, QueryFilter, QuerySelect, Set,
+    EntityTrait, IntoActiveModel, QueryFilter, QuerySelect,
 };
 
 use crate::{
@@ -11,7 +11,8 @@ use crate::{
     pagin,
 };
 
-pub async fn batch_insert_or_update_key_meta<C: ConnectionTrait>(
+// batch insert metas
+pub async fn insert_or_update_key_metas<C: ConnectionTrait>(
     db: &C,
     models: Vec<KeyMetaModel>,
 ) -> Result<()> {
@@ -22,25 +23,19 @@ pub async fn batch_insert_or_update_key_meta<C: ConnectionTrait>(
         active
     }))
     .on_conflict(
-        OnConflict::columns([
-            KeyMetaColumn::KmsId,
-            KeyMetaColumn::KeyId,
-            KeyMetaColumn::Version,
-        ])
-        .update_columns([
-            KeyMetaColumn::RotationInterval,
-            KeyMetaColumn::Description,
-            KeyMetaColumn::Version,
-            KeyMetaColumn::PrimaryVersion,
-            KeyMetaColumn::LastRotationAt,
-            KeyMetaColumn::MaterialExpireAt,
-            KeyMetaColumn::DeletionAt,
-        ])
-        .to_owned(),
+        OnConflict::columns([KeyMetaColumn::KeyId, KeyMetaColumn::Version])
+            .update_columns([
+                KeyMetaColumn::RotationInterval,
+                KeyMetaColumn::Description,
+                KeyMetaColumn::PrimaryVersion,
+                KeyMetaColumn::LastRotationAt,
+                KeyMetaColumn::MaterialExpireAt,
+                KeyMetaColumn::DeletionAt,
+            ])
+            .to_owned(),
     )
     .exec(db)
     .await?;
-
     Ok(())
 }
 
@@ -66,11 +61,14 @@ pub async fn select_alias<C: ConnectionTrait>(
 
 pub async fn set_key_alias<C: ConnectionTrait>(
     db: &C,
-    model: &KeyAliasModel,
+    model: KeyAliasModel,
 ) -> Result<()> {
-    KeyAliasEntity::insert(model.clone().into_active_model())
+    let mut active = model.into_active_model();
+    active.created_at = NotSet;
+    active.updated_at = NotSet;
+    KeyAliasEntity::insert(active)
         .on_conflict(
-            OnConflict::columns([KeyAliasColumn::Alias])
+            OnConflict::column(KeyAliasColumn::Alias)
                 .update_column(KeyAliasColumn::KeyId)
                 .to_owned(),
         )

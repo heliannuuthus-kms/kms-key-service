@@ -287,7 +287,7 @@ async fn save_key(db: &DbConn, model: &KeyModel) -> Result<()> {
 }
 
 async fn batch_save_key(db: &DbConn, models: Vec<KeyModel>) -> Result<()> {
-    key_repository::batch_insert_key(db, models.clone()).await?;
+    key_repository::insert_keys(db, models.clone()).await?;
     for model in models {
         KEY_INDEX_CACHE
             .remove(&format!("kms:keys:key_index:{}", model.kms_id))
