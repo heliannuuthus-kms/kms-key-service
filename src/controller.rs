@@ -27,8 +27,9 @@ use crate::{
 };
 
 pub mod crypto_controller;
+pub mod key_alias_controller;
 pub mod key_controller;
-pub mod key_extra_controller;
+pub mod key_meta_controller;
 pub mod kms_controller;
 
 #[derive(OpenApi)]
@@ -61,22 +62,22 @@ pub mod kms_controller;
         PaginatedKeyAliasModels,
     )),
     paths(
+        kms_controller::create_kms,
+        kms_controller::destroy_kms,
+        kms_controller::set_kms,
+        kms_controller::get_kms,
         key_controller::create_key,
         key_controller::import_key,
         key_controller::import_key_params,
         key_controller::list_kms_keys,
-        kms_controller::create_kms,
-        kms_controller::set_kms,
-        kms_controller::get_kms,
-        kms_controller::destroy_kms,
-        key_extra_controller::set_key_meta,
-        key_extra_controller::get_key_meta,
-        key_extra_controller::set_key_alias,
-        key_extra_controller::remove_key_alias,
-        key_extra_controller::list_key_alias,
-        key_extra_controller::create_key_version,
-        key_extra_controller::list_key_version,
-        key_extra_controller::change_key_state,
+        key_controller::create_key_version,
+        key_controller::list_key_version,
+        key_meta_controller::set_key_meta,
+        key_meta_controller::get_key_meta,
+        key_meta_controller::change_key_state,
+        key_alias_controller::set_key_alias,
+        key_alias_controller::remove_key_alias,
+        key_alias_controller::list_key_alias,
         crypto_controller::encrypt,
         crypto_controller::advance_encrypt,
         crypto_controller::decrypt,

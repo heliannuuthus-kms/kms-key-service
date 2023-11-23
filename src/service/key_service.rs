@@ -8,7 +8,7 @@ use sea_orm::*;
 use serde_json::json;
 
 use super::{
-    key_extra_service::{self, get_key_metas, get_main_key_meta},
+    key_meta_service::{self, get_key_metas, get_main_key_meta},
     kms_service,
 };
 use crate::{
@@ -20,7 +20,7 @@ use crate::{
     },
     crypto::{
         algorithm::{self},
-        types::{KeyOrigin, KeyState, KeyType},
+        types::{self, KeyOrigin, KeyState, KeyType},
     },
     entity::{
         key::{AsymmtricKeyPair, SymmtricKeyPair},
@@ -34,7 +34,7 @@ use crate::{
             KeyMaterialImportParamsResult, KeyVersionResult,
         },
     },
-    repository::{key_extra_repository, key_repository},
+    repository::{key_alias_repository, key_repository},
 };
 
 lazy_static! {
@@ -142,7 +142,7 @@ pub async fn create_key(
         key.version
     );
     save_key(db, &key).await?;
-    key_extra_service::set_key_meta(db, key_meta).await?;
+    key_meta_service::set_key_meta(db, key_meta).await?;
 
     Ok(result)
 }
@@ -249,7 +249,7 @@ pub async fn import_key_material(
     let key_model: KeyModel = get_main_key(db, key_id).await?;
 
     let key_meta_model =
-        key_extra_service::get_version_key_meta(db, key_id, &key_model.version)
+        key_meta_service::get_version_key_meta(db, key_id, &key_model.version)
             .await?;
 
     let meta = algorithm::select_meta(key_meta_model.spec);
@@ -350,11 +350,15 @@ pub async fn create_key_version(
 ) -> Result<KeyVersionResult> {
     let mut key_meta: KeyMetaModel = get_main_key_meta(db, key_id).await?;
 
+    // judge origin
     if KeyOrigin::External.eq(&key_meta.origin) {
         return Err(ServiceError::Unsupported(
             "external key is unsuppoted to create new version".to_owned(),
         ));
     }
+
+    // judge state
+    types::assert_state(KeyState::Enable, key_meta.state)?;
 
     let key_alg_meta = algorithm::select_meta(key_meta.spec);
 
@@ -389,7 +393,7 @@ pub async fn create_key_version(
 
     key_metas.push(key_meta_new.clone());
     tracing::debug!("print create new key version: {:?}", key_metas);
-    key_extra_service::batch_set_key_meta(db, key_metas).await?;
+    key_meta_service::batch_set_key_meta(db, key_metas).await?;
 
     Ok(KeyVersionResult::from(key_meta_new))
 }
@@ -473,7 +477,7 @@ pub async fn get_key_by_alias(db: &DbConn, alias: &str) -> Result<KeyModel> {
         Some(key) => Ok(key),
         None => {
             if let Some(key_alias) =
-                key_extra_repository::select_alias(db, alias).await?
+                key_alias_repository::select_alias(db, alias).await?
             {
                 let key = get_main_key(db, &key_alias.key_id).await?;
                 ALIAS_KEY_CACHE

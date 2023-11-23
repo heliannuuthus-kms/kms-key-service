@@ -5,6 +5,8 @@ use sea_orm::DbErr;
 use serde_json::json;
 use thiserror::Error;
 
+use crate::crypto::types::KeyStateStatus;
+
 pub type Result<T> = std::result::Result<T, ServiceError>;
 
 #[derive(Debug, Error)]
@@ -15,6 +17,8 @@ pub enum ServiceError {
     Unauthorized(String),
     #[error("{0}")]
     Unsupported(String),
+    #[error("{0}")]
+    StateChange(KeyStateStatus),
     #[error("{0}")]
     NotFount(String),
     #[error("internal server error {0}")]
@@ -37,6 +41,9 @@ impl IntoResponse for ServiceError {
             }
             ServiceError::Datasource(e) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            }
+            ServiceError::StateChange(status) => {
+                (StatusCode::CONFLICT, status.to_string())
             }
         };
 

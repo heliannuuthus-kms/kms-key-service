@@ -108,3 +108,56 @@ pub async fn list_kms_keys(
         .await
         .map(axum::Json)
 }
+
+#[utoipa::path(
+    post,
+    path="/versions",
+    operation_id = "新增密钥版本",
+    context_path= "/keys/{key_id}",
+    params(
+        ("key_id" = String, Path, description="密钥标识"),
+    ),
+    responses(
+        (status = 200, description = "密钥新版本信息", body = KeyVersionResult),
+        (status = 400, description = "illegal params")
+    ),
+  )]
+pub async fn create_key_version(
+    State(States { db, .. }): State<States>,
+    Path(key_id): Path<String>,
+) -> Result<impl IntoResponse> {
+    tracing::info!("create key version, key_id: {}", key_id);
+    key_service::create_key_version(&db, &key_id)
+        .await
+        .map(axum::Json)
+}
+
+#[utoipa::path(
+    get,
+    path="",
+    operation_id = "分页查询密钥版本信息",
+    context_path= "/keys/{key_id}/versions",
+    params(
+        ("key_id" = String, Path, description="kms 标识"),
+        Paginator
+      ),
+    responses(
+        (status = 200, description = "", body = ()),
+        (status = 400, description = "illegal params")
+    ),
+  )]
+pub async fn list_key_version(
+    State(States { db, .. }): State<States>,
+    Path(key_id): Path<String>,
+    Query(paginator): Query<Paginator>,
+) -> Result<impl IntoResponse> {
+    tracing::info!(
+        "pagin key meta, key_id: {}, paginator: {:?}",
+        key_id,
+        paginator
+    );
+
+    key_service::list_key_versions(&db, &key_id, &paginator)
+        .await
+        .map(axum::Json)
+}

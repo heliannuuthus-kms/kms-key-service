@@ -8,13 +8,12 @@ use controller::{
     crypto_controller::{
         advance_encrypt, advance_sign, decrypt, encrypt, sign, verify,
     },
+    key_alias_controller::{list_key_alias, remove_key_alias, set_key_alias},
     key_controller::{
-        create_key, import_key, import_key_params, list_kms_keys,
+        create_key, create_key_version, import_key, import_key_params,
+        list_key_version, list_kms_keys,
     },
-    key_extra_controller::{
-        change_key_state, create_key_version, get_key_meta, list_key_alias,
-        list_key_version, remove_key_alias, set_key_alias, set_key_meta,
-    },
+    key_meta_controller::{change_key_state, get_key_meta, set_key_meta},
     kms_controller::{create_kms, destroy_kms, get_kms, set_kms},
     ApiDoc,
 };
