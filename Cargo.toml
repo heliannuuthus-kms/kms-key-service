@@ -12,13 +12,14 @@ axum = { git = "https://github.com/tokio-rs/axum", features = ["macros"] }
 serde = { version = "1.0", features = ["derive", "std"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
 tokio = { version = "1.33.0", features = ["full"] }
+tokio-util = { version = "0.7.10", features = ["time"] }
 thiserror = "1.0"
 http = "0.2.9"
 
 
 ## openapi
 utoipa = { version = "4.0.0", features = ["axum_extras", "chrono"] }
-utoipa-redoc = { version = "1.0.0"}
+utoipa-redoc = { version = "1.0.0" }
 
 
 ## logger
@@ -55,5 +56,6 @@ libsm = "0.5.1"
 ring = "0.17.3"
 num-bigint = "0.4.4"
 num = "0.4.1"
-rslock = {version="0.2.2", features=["tokio-comp"]}
+rslock = { version = "0.2.2", features = ["tokio-comp"] }
+futures = "0.3.29"
 ## new package

@@ -1,6 +1,5 @@
-use axum::{response::IntoResponse, Json};
+use axum::{http::StatusCode, response::IntoResponse};
 use chrono::offset;
-use http::StatusCode;
 use sea_orm::DbErr;
 use serde_json::json;
 use thiserror::Error;
@@ -49,7 +48,7 @@ impl IntoResponse for ServiceError {
 
         (
             resp.0,
-            Json(json!({
+            axum::Json(json!({
                 "code": resp.0.as_u16(),
                 "msg": resp.1,
                 "timestamp": offset::Local::now()
