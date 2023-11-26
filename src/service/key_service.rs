@@ -6,6 +6,7 @@ use lazy_static::lazy_static;
 use moka::future::Cache;
 use sea_orm::*;
 use serde_json::json;
+use tokio_util::time::DelayQueue;
 
 use super::{
     key_meta_service::{self, get_key_metas, get_main_key_meta},
@@ -18,6 +19,7 @@ use crate::{
         errors::{Result, ServiceError},
         utils,
     },
+    controller::key_controller::create_key_version,
     crypto::{
         algorithm::{self},
         types::{self, KeyOrigin, KeyState, KeyType},
@@ -140,6 +142,19 @@ pub async fn create_key(
         key.kms_id,
         key.key_id,
         key.version
+    );
+
+    let delay = DelayQueue::<
+        fn(
+            &DbConn,
+            &str,
+        ) -> impl std::future::Future<Output = Result<KeyVersionResult>>,
+    >::new();
+    delay.insert(
+        create_key_version,
+        Duration::seconds(key_meta.rotation_interval)
+            .to_std()
+            .unwrap(),
     );
     save_key(db, &key).await?;
     key_meta_service::set_key_meta(db, key_meta).await?;
