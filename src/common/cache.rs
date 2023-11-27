@@ -1,4 +1,5 @@
 use anyhow::Context;
+use axum::async_trait;
 use chrono::Duration;
 use redis::{aio::Connection, Client, FromRedisValue, ToRedisArgs};
 

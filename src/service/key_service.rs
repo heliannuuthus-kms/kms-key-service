@@ -1,12 +1,18 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    clone,
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use chrono::{Duration, Local, Utc};
+use dashmap::DashMap;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use moka::future::Cache;
 use sea_orm::*;
 use serde_json::json;
-use tokio_util::time::DelayQueue;
+use tokio::sync::Mutex;
+use tokio_util::time::{delay_queue, DelayQueue};
 
 use super::{
     key_meta_service::{self, get_key_metas, get_main_key_meta},
@@ -19,7 +25,6 @@ use crate::{
         errors::{Result, ServiceError},
         utils,
     },
-    controller::key_controller::create_key_version,
     crypto::{
         algorithm::{self},
         types::{self, KeyOrigin, KeyState, KeyType},
@@ -60,8 +65,61 @@ lazy_static! {
             .build();
 }
 
+#[derive(Clone)]
+pub struct RotateExecutor {
+    db: DbConn,
+    queue: Arc<Mutex<DelayQueue<String>>>,
+    entries: DashMap<String, (Duration, delay_queue::Key)>,
+}
+
+impl RotateExecutor {
+    pub async fn new(db: DbConn) -> Self {
+        RotateExecutor {
+            db,
+            queue: Arc::new(Mutex::new(
+                tokio_util::time::DelayQueue::<String>::new(),
+            )),
+            entries: DashMap::new(),
+        }
+    }
+
+    pub async fn submit(&self, key_id: &str, interval: Duration) {
+        if self.entries.get(key_id).is_none() {
+            let mut q1 = self.queue.lock().await;
+            let key = q1.insert(key_id.to_owned(), interval.to_std().unwrap());
+            self.entries.insert(key_id.to_owned(), (interval, key));
+        }
+    }
+
+    pub async fn remove(&self, key_id: &str) {
+        if let Some(value) = self.entries.get(key_id) {
+            let mut q1 = self.queue.lock().await;
+            q1.remove(&value.1);
+            self.entries.remove(key_id);
+        }
+    }
+
+    pub async fn poll_purge(&self) {
+        let mut delay =
+            tokio::time::interval(Duration::seconds(1).to_std().unwrap());
+        loop {
+            delay.tick().await;
+            let mut q1 = self.queue.lock().await;
+            tracing::debug!("entries: {:?}", self.entries);
+            if let Some(entry) =
+                futures::future::poll_fn(|cx| q1.poll_expired(cx)).await
+            {
+                let key_id = entry.get_ref();
+                let _ = create_key_version(&self.db, self, key_id).await;
+                tracing::debug!("rotate key, key_id: {}", key_id);
+            }
+        }
+    }
+}
+
 pub async fn create_key(
     db: &DbConn,
+    re: RotateExecutor,
     data: &KeyCreateForm,
 ) -> Result<KeyCreateResult> {
     let key_alg_meta = algorithm::select_meta(data.spec);
@@ -109,20 +167,6 @@ pub async fn create_key(
         primary_key_version: key_meta.primary_version.to_owned(),
         ..Default::default()
     };
-    // fill key rotation interval
-    if data.enable_automatic_rotation {
-        if let Some(ri) = data.rotation_interval {
-            key_meta.rotation_interval = ri.num_seconds();
-            result.rotate_interval = Some(ri);
-            result.next_rotated_at = Some(Local::now().fixed_offset() + ri);
-        } else {
-            return Err(ServiceError::BadRequest(
-                "please set `rotation_interval`, if enable \
-                 `enable_automatic_rotation`"
-                    .to_owned(),
-            ));
-        }
-    }
 
     if KeyOrigin::Kms.eq(&key_meta.origin) {
         key.generate_key(data.spec)?;
@@ -144,18 +188,22 @@ pub async fn create_key(
         key.version
     );
 
-    let delay = DelayQueue::<
-        fn(
-            &DbConn,
-            &str,
-        ) -> impl std::future::Future<Output = Result<KeyVersionResult>>,
-    >::new();
-    delay.insert(
-        create_key_version,
-        Duration::seconds(key_meta.rotation_interval)
-            .to_std()
-            .unwrap(),
-    );
+    // fill key rotation interval
+    if data.enable_automatic_rotation {
+        if let Some(ri) = data.rotation_interval {
+            key_meta.rotation_interval = ri.num_seconds();
+            result.rotate_interval = Some(ri);
+            result.next_rotated_at = Some(Local::now().fixed_offset() + ri);
+            re.submit(key_id, ri).await;
+        } else {
+            return Err(ServiceError::BadRequest(
+                "please set `rotation_interval`, if enable \
+                 `enable_automatic_rotation`"
+                    .to_owned(),
+            ));
+        }
+    }
+
     save_key(db, &key).await?;
     key_meta_service::set_key_meta(db, key_meta).await?;
 
@@ -299,6 +347,7 @@ pub async fn import_key_material(
 
 pub async fn create_key_version(
     db: &DbConn,
+    re: &RotateExecutor,
     key_id: &str,
 ) -> Result<KeyVersionResult> {
     let mut key_meta: KeyMetaModel = get_main_key_meta(db, key_id).await?;
@@ -346,6 +395,12 @@ pub async fn create_key_version(
 
     key_metas.push(key_meta_new.clone());
     tracing::debug!("print create new key version: {:?}", key_metas);
+
+    re.remove(key_id).await;
+
+    re.submit(key_id, Duration::seconds(key_meta.rotation_interval))
+        .await;
+
     key_meta_service::batch_set_key_meta(db, key_metas).await?;
 
     Ok(KeyVersionResult::from(key_meta_new))
@@ -472,5 +527,57 @@ pub async fn get_key_by_alias(db: &DbConn, alias: &str) -> Result<KeyModel> {
                 )))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use std::{
+        sync::{Arc, Mutex},
+        task::Poll,
+        thread,
+    };
+
+    use chrono::{Duration, Utc};
+    use futures::ready;
+    use tokio::time::Instant;
+
+    use crate::common::utils;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_delay_queue() {
+        let queue = Arc::new(Mutex::new(tokio_util::time::DelayQueue::new()));
+        let rotation = |key_id: String| {
+            println!(
+                "thread_id: {:?}, rotate_key, key_id: {}, timestamp: {:?}",
+                thread::current().id(),
+                key_id,
+                Utc::now().naive_local()
+            )
+        };
+
+        let tasks = (0 .. 10).map(|i| {
+            let queue2 = queue.clone();
+            tokio::spawn(async move {
+                let mut q1 = queue2.lock().unwrap();
+                println!("thread_id: {:?}", thread::current().id(),);
+                let _key = q1.insert_at(
+                    rotation,
+                    Instant::now() + Duration::seconds(i).to_std().unwrap(),
+                );
+            })
+        });
+
+        futures::future::join_all(tasks).await;
+
+        futures::future::poll_fn(|cx| {
+            let mut q1 = queue.lock().unwrap();
+            while let Some(entry) = ready!(q1.poll_expired(cx)) {
+                entry.get_ref()(utils::uuid());
+            }
+            Poll::Ready(())
+        })
+        .await
     }
 }

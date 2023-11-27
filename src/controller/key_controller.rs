@@ -27,12 +27,14 @@ use crate::{
     request_body = KeyCreateForm
 )]
 pub async fn create_key(
-    State(States { db, .. }): State<States>,
+    State(States { db, rd, extra }): State<States>,
     Json(form): Json<KeyCreateForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create master key, data: {:?}", form);
 
-    key_service::create_key(&db, &form).await.map(axum::Json)
+    key_service::create_key(&db, extra.re, &form)
+        .await
+        .map(axum::Json)
 }
 
 #[utoipa::path(
@@ -47,7 +49,7 @@ pub async fn create_key(
     ),
 )]
 pub async fn import_key_params(
-    State(States { db, rd }): State<States>,
+    State(States { db, rd, .. }): State<States>,
     Query(form): Query<KeyImportParamsQuery>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create import key material, data: {:?}", form);
@@ -69,7 +71,7 @@ pub async fn import_key_params(
 )]
 #[axum::debug_handler]
 pub async fn import_key(
-    State(States { db, rd }): State<States>,
+    State(States { db, rd, .. }): State<States>,
     Json(form): Json<KeyImportForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("import key material, data: {:?}", form);
@@ -122,11 +124,11 @@ pub async fn list_kms_keys(
     ),
   )]
 pub async fn create_key_version(
-    State(States { db, .. }): State<States>,
+    State(States { db, extra, .. }): State<States>,
     Path(key_id): Path<String>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create key version, key_id: {}", key_id);
-    key_service::create_key_version(&db, &key_id)
+    key_service::create_key_version(&db, &extra.re, &key_id)
         .await
         .map(axum::Json)
 }
@@ -159,56 +161,4 @@ pub async fn list_key_version(
     key_service::list_key_versions(&db, &key_id, &paginator)
         .await
         .map(axum::Json)
-}
-
-#[cfg(test)]
-mod test {
-
-    use std::{
-        sync::{Arc, Mutex},
-        task::Poll,
-        thread,
-    };
-
-    use chrono::{Duration, Utc};
-    use futures::ready;
-    use tokio::time::Instant;
-
-    use crate::common::utils;
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn test_delay_queue() {
-        let queue = Arc::new(Mutex::new(tokio_util::time::DelayQueue::new()));
-        let rotation = |key_id: String| {
-            println!(
-                "thread_id: {:?}, rotate_key, key_id: {}, timestamp: {:?}",
-                thread::current().id(),
-                key_id,
-                Utc::now().naive_local()
-            )
-        };
-
-        let tasks = (0 .. 10).map(|i| {
-            let queue2 = queue.clone();
-            tokio::spawn(async move {
-                let mut q1 = queue2.lock().unwrap();
-                println!("thread_id: {:?}", thread::current().id(),);
-                let _key = q1.insert_at(
-                    rotation,
-                    Instant::now() + Duration::seconds(i).to_std().unwrap(),
-                );
-            })
-        });
-
-        futures::future::join_all(tasks).await;
-
-        futures::future::poll_fn(|cx| {
-            let mut q1 = queue.lock().unwrap();
-            while let Some(entry) = ready!(q1.poll_expired(cx)) {
-                entry.get_ref()(utils::uuid());
-            }
-            Poll::Ready(())
-        })
-        .await
-    }
 }

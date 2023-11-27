@@ -11,7 +11,7 @@ debug = true
 axum = { git = "https://github.com/tokio-rs/axum", features = ["macros"] }
 serde = { version = "1.0", features = ["derive", "std"] }
 serde_json = { version = "1.0", features = ["raw_value"] }
-tokio = { version = "1.33.0", features = ["full"] }
+tokio = { version = "1.33.0", features = ["full", "time"] }
 tokio-util = { version = "0.7.10", features = ["time"] }
 thiserror = "1.0"
 http = "0.2.9"
@@ -58,4 +58,5 @@ num-bigint = "0.4.4"
 num = "0.4.1"
 rslock = { version = "0.2.2", features = ["tokio-comp"] }
 futures = "0.3.29"
+dashmap = "5.5.3"
 ## new package
