@@ -27,7 +27,7 @@ use crate::{
     request_body = KeyCreateForm
 )]
 pub async fn create_key(
-    State(States { db, rd, extra }): State<States>,
+    State(States { db, extra, .. }): State<States>,
     Json(form): Json<KeyCreateForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create master key, data: {:?}", form);

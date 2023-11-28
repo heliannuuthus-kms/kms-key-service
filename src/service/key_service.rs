@@ -1,18 +1,14 @@
-use std::{
-    clone,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::collections::{HashMap, HashSet};
 
+use anyhow::Context;
 use chrono::{Duration, Local, Utc};
 use dashmap::DashMap;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use moka::future::Cache;
+use redis::AsyncCommands;
 use sea_orm::*;
 use serde_json::json;
-use tokio::sync::Mutex;
-use tokio_util::time::{delay_queue, DelayQueue};
 
 use super::{
     key_meta_service::{self, get_key_metas, get_main_key_meta},
@@ -20,7 +16,7 @@ use super::{
 };
 use crate::{
     common::{
-        cache::{redis_get, redis_setex, RdConn},
+        cache::{self, redis_get, RdConn},
         datasource::{self, PaginatedResult, Paginator},
         errors::{Result, ServiceError},
         utils,
@@ -68,51 +64,79 @@ lazy_static! {
 #[derive(Clone)]
 pub struct RotateExecutor {
     db: DbConn,
-    queue: Arc<Mutex<DelayQueue<String>>>,
-    entries: DashMap<String, (Duration, delay_queue::Key)>,
+    rd: RdConn,
+    keys: DashMap<String, (i64, Duration)>,
 }
 
 impl RotateExecutor {
-    pub async fn new(db: DbConn) -> Self {
+    pub async fn new(db: DbConn, rd: RdConn) -> Self {
         RotateExecutor {
             db,
-            queue: Arc::new(Mutex::new(
-                tokio_util::time::DelayQueue::<String>::new(),
-            )),
-            entries: DashMap::new(),
+            rd,
+            keys: DashMap::new(),
         }
     }
 
-    pub async fn submit(&self, key_id: &str, interval: Duration) {
-        if self.entries.get(key_id).is_none() {
-            let mut q1 = self.queue.lock().await;
-            let key = q1.insert(key_id.to_owned(), interval.to_std().unwrap());
-            self.entries.insert(key_id.to_owned(), (interval, key));
-        }
+    fn inner_key(&self, timestamp: i64) -> String {
+        format!("kms:keys:rotation:{}", timestamp)
     }
 
-    pub async fn remove(&self, key_id: &str) {
-        if let Some(value) = self.entries.get(key_id) {
-            let mut q1 = self.queue.lock().await;
-            q1.remove(&value.1);
-            self.entries.remove(key_id);
+    pub async fn submit(&self, key_id: &str, interval: Duration) -> Result<()> {
+        if self.keys.get(key_id).is_none() {
+            let mut conn = cache::borrow(&self.rd).await?;
+            let current_timestamp = (Utc::now() + interval).timestamp();
+            conn.sadd(&self.inner_key(current_timestamp), key_id)
+                .await?;
+            self.keys
+                .insert(key_id.to_owned(), (current_timestamp, interval));
         }
+        Ok(())
     }
 
-    pub async fn poll_purge(&self) {
+    pub async fn reset(&self, key_id: &str) -> Result<()> {
+        if let Some(timestamp) = self.keys.get(key_id) {
+            let mut conn = cache::borrow(&self.rd).await?;
+            conn.srem(self.inner_key(timestamp.0.to_owned()), key_id)
+                .await?;
+            conn.sadd(
+                &self.inner_key((Utc::now() + timestamp.1).timestamp()),
+                key_id,
+            )
+            .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn remove(&self, key_id: &str) -> Result<()> {
+        if let Some(timestamp) = self.keys.get(key_id) {
+            let mut conn = cache::borrow(&self.rd).await?;
+            conn.srem(self.inner_key(timestamp.0.to_owned()), key_id)
+                .await?;
+            self.keys.remove(key_id);
+        }
+        Ok(())
+    }
+
+    pub async fn poll_purge(&self) -> Result<()> {
         let mut delay =
             tokio::time::interval(Duration::seconds(1).to_std().unwrap());
         loop {
             delay.tick().await;
-            let mut q1 = self.queue.lock().await;
-            tracing::debug!("entries: {:?}", self.entries);
-            if let Some(entry) =
-                futures::future::poll_fn(|cx| q1.poll_expired(cx)).await
-            {
-                let key_id = entry.get_ref();
-                let _ = create_key_version(&self.db, self, key_id).await;
-                tracing::debug!("rotate key, key_id: {}", key_id);
-            }
+            let mut conn = cache::borrow(&self.rd).await?;
+            let key = self.inner_key(Utc::now().timestamp());
+            let key_ids: HashSet<String> =
+                conn.smembers(key.to_owned()).await?;
+            conn.del(key).await?;
+            futures::future::join_all(
+                key_ids
+                    .iter()
+                    .map(|key_id| async {
+                        create_key_version(&self.db, self, key_id).await
+                    })
+                    .collect_vec(),
+            )
+            .await;
+            tracing::debug!("polling... {:?}", self.keys);
         }
     }
 }
@@ -194,7 +218,7 @@ pub async fn create_key(
             key_meta.rotation_interval = ri.num_seconds();
             result.rotate_interval = Some(ri);
             result.next_rotated_at = Some(Local::now().fixed_offset() + ri);
-            re.submit(key_id, ri).await;
+            re.submit(key_id, ri).await?;
         } else {
             return Err(ServiceError::BadRequest(
                 "please set `rotation_interval`, if enable \
@@ -252,16 +276,17 @@ pub async fn generate_key_import_params(
     let expires_in = Duration::days(1);
 
     let import_token = utils::generate_b64(128)?;
-    redis_setex(
-        rd,
-        &format!("kms:keys:import_material:{}", key_id),
-        KeyMaterialImportParams {
+    let mut conn = cache::borrow(rd).await?;
+    conn.set_ex(
+        format!("kms:keys:import_material:{}", key_id),
+        serde_json::to_string(&KeyMaterialImportParams {
             token: import_token.to_owned(),
             private_key: utils::encode64(&left),
             wrapping_spec: form.wrapping_key_spec,
             wrapping_algorithm: form.wrapping_algorithm,
-        },
-        expires_in,
+        })
+        .context("serilize key material failed")?,
+        expires_in.num_seconds() as usize,
     )
     .await?;
     Ok(KeyMaterialImportParamsResult {
@@ -278,7 +303,6 @@ pub async fn import_key_material(
     data: &KeyImportForm,
 ) -> Result<()> {
     let key_id = &data.key_id;
-
     let material_data = match redis_get::<KeyMaterialImportParams>(
         rd,
         &format!("kms:keys:import_material:{}", key_id),
@@ -396,12 +420,11 @@ pub async fn create_key_version(
     key_metas.push(key_meta_new.clone());
     tracing::debug!("print create new key version: {:?}", key_metas);
 
-    re.remove(key_id).await;
-
-    re.submit(key_id, Duration::seconds(key_meta.rotation_interval))
-        .await;
-
     key_meta_service::batch_set_key_meta(db, key_metas).await?;
+
+    if key_meta.rotation_interval >= 0 {
+        re.reset(key_id).await?;
+    }
 
     Ok(KeyVersionResult::from(key_meta_new))
 }

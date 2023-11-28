@@ -1,5 +1,6 @@
 use axum::{http::StatusCode, response::IntoResponse};
 use chrono::offset;
+use redis::RedisError;
 use sea_orm::DbErr;
 use serde_json::json;
 use thiserror::Error;
@@ -24,6 +25,8 @@ pub enum ServiceError {
     InternalServer(#[from] anyhow::Error),
     #[error("datasource error")]
     Datasource(#[from] DbErr),
+    #[error("redis error")]
+    RedisError(#[from] RedisError),
 }
 
 impl IntoResponse for ServiceError {
@@ -43,6 +46,9 @@ impl IntoResponse for ServiceError {
             }
             ServiceError::StateChange(status) => {
                 (StatusCode::CONFLICT, status.to_string())
+            }
+            ServiceError::RedisError(e) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
             }
         };
 

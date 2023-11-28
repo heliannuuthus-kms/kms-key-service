@@ -1,7 +1,8 @@
 use anyhow::Context;
-use axum::async_trait;
 use chrono::Duration;
-use redis::{aio::Connection, Client, FromRedisValue, ToRedisArgs};
+use redis::{
+    aio::Connection, AsyncCommands, Client, FromRedisValue, ToRedisArgs,
+};
 
 use super::{configs::env_var, errors::Result};
 
@@ -31,11 +32,7 @@ where
     T: serde::de::DeserializeOwned,
 {
     let mut conn = borrow(rd).await?;
-    let value: Option<String> = redis::cmd("GET")
-        .arg(key)
-        .query_async(&mut conn)
-        .await
-        .context(format!("redis execute GET faild: {}", key))?;
+    let value: Option<String> = conn.get(key).await?;
     match value {
         Some(v) => Ok(Some(
             serde_json::from_str::<T>(&v)

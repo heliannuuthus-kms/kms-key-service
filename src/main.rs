@@ -50,16 +50,17 @@ async fn main() {
     dotenv().expect(".env file not found");
     common::log::init();
     let db = common::datasource::init().await.unwrap();
-    let executor = RotateExecutor::new(db.clone()).await;
+    let rd = common::cache::init().await.unwrap();
+    let executor = RotateExecutor::new(db.clone(), rd.clone()).await;
     let state = States {
-        db: db,
-        rd: common::cache::init().await.unwrap(),
+        db,
+        rd,
         extra: ExtraStates {
             re: executor.clone(),
         },
     };
     tokio::spawn(async move {
-        executor.poll_purge().await;
+        executor.poll_purge().await.unwrap();
     });
     let key_router = Router::new()
         .route("/", post(create_key))

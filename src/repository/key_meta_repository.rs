@@ -10,6 +10,7 @@ pub async fn insert_or_update_key_metas<C: ConnectionTrait>(
     db: &C,
     models: Vec<KeyMetaModel>,
 ) -> Result<()> {
+    tracing::debug!("insert or update: {:?}", models);
     KeyMetaEntity::insert_many(models.into_iter().map(|model| {
         let mut active = model.into_active_model();
         active.created_at = NotSet;
