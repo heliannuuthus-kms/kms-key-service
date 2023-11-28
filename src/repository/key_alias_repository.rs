@@ -1,8 +1,8 @@
 use anyhow::Context;
 use itertools::Itertools;
 use sea_orm::{
-    sea_query::OnConflict, ActiveValue::NotSet, ColumnTrait, ConnectionTrait,
-    EntityTrait, IntoActiveModel, QueryFilter, QuerySelect,
+    sea_query::OnConflict, ColumnTrait, ConnectionTrait, EntityTrait,
+    IntoActiveModel, QueryFilter, QuerySelect,
 };
 
 use crate::{
@@ -35,10 +35,7 @@ pub async fn set_key_alias<C: ConnectionTrait>(
     db: &C,
     model: KeyAliasModel,
 ) -> Result<()> {
-    let mut active = model.into_active_model();
-    active.created_at = NotSet;
-    active.updated_at = NotSet;
-    KeyAliasEntity::insert(active)
+    KeyAliasEntity::insert(model.into_active_model())
         .on_conflict(
             OnConflict::column(KeyAliasColumn::Alias)
                 .update_column(KeyAliasColumn::KeyId)

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime};
+use chrono::{Duration, NaiveDateTime};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use utoipa::ToSchema;
@@ -27,7 +27,7 @@ pub struct KeyCreateResult {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rotate_interval: Option<Duration>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_rotated_at: Option<DateTime<FixedOffset>>,
+    pub next_rotated_at: Option<NaiveDateTime>,
 }
 
 #[derive(Serialize, Deserialize, Clone, ToSchema)]

@@ -1,8 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use anyhow::Context;
-use chrono::{Duration, Local, Utc};
-use dashmap::DashMap;
+use chrono::{Duration, NaiveDateTime, Utc};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use moka::future::Cache;
@@ -65,16 +64,11 @@ lazy_static! {
 pub struct RotateExecutor {
     db: DbConn,
     rd: RdConn,
-    keys: DashMap<String, (i64, Duration)>,
 }
 
 impl RotateExecutor {
     pub async fn new(db: DbConn, rd: RdConn) -> Self {
-        RotateExecutor {
-            db,
-            rd,
-            keys: DashMap::new(),
-        }
+        RotateExecutor { db, rd }
     }
 
     fn inner_key(&self, timestamp: i64) -> String {
@@ -86,24 +80,17 @@ impl RotateExecutor {
         let current_timestamp = (Utc::now() + interval).timestamp();
         conn.sadd(&self.inner_key(current_timestamp), key_id)
             .await?;
-        self.keys
-            .insert(key_id.to_owned(), (current_timestamp, interval));
         Ok(())
     }
 
-    pub async fn reset(&self, key_id: &str, interval: Duration) -> Result<()> {
+    pub async fn remove(
+        &self,
+        key_id: &str,
+        timestamp: NaiveDateTime,
+    ) -> Result<()> {
         let mut conn = cache::borrow(&self.rd).await?;
-        let timestamp = (Utc::now() + interval).timestamp();
-        conn.srem(self.inner_key(timestamp), key_id).await?;
-        conn.sadd(&self.inner_key(timestamp), key_id).await?;
-        Ok(())
-    }
-
-    pub async fn remove(&self, key_id: &str, interval: Duration) -> Result<()> {
-        let mut conn = cache::borrow(&self.rd).await?;
-        conn.srem(self.inner_key((Utc::now() + interval).timestamp()), key_id)
+        conn.srem(self.inner_key(timestamp.timestamp()), key_id)
             .await?;
-        self.keys.remove(key_id);
         Ok(())
     }
 
@@ -126,7 +113,6 @@ impl RotateExecutor {
                     .collect_vec(),
             )
             .await;
-            tracing::debug!("polling... {:?}", self.keys);
         }
     }
 }
@@ -207,7 +193,7 @@ pub async fn create_key(
         if let Some(ri) = data.rotation_interval {
             key_meta.rotation_interval = ri.num_seconds();
             result.rotate_interval = Some(ri);
-            result.next_rotated_at = Some(Local::now().fixed_offset() + ri);
+            result.next_rotated_at = Some(key_meta.created_at + ri);
             re.submit(key_id, ri).await?;
         } else {
             return Err(ServiceError::BadRequest(
@@ -408,13 +394,15 @@ pub async fn create_key_version(
         .collect_vec();
 
     key_metas.push(key_meta_new.clone());
-    tracing::debug!("print create new key version: {:?}", key_metas);
 
     key_meta_service::batch_set_key_meta(db, key_metas).await?;
 
     if key_meta.rotation_interval >= 0 {
-        re.reset(key_id, Duration::seconds(key_meta.rotation_interval))
-            .await?;
+        let last_rotation_at =
+            key_meta.last_rotation_at.unwrap_or(key_meta.created_at);
+        let interval = Duration::seconds(key_meta.rotation_interval);
+        re.remove(key_id, last_rotation_at + interval).await?;
+        re.submit(key_id, interval).await?;
     }
 
     Ok(KeyVersionResult::from(key_meta_new))
