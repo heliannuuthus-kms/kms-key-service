@@ -1,8 +1,5 @@
 use anyhow::Context;
-use chrono::Duration;
-use redis::{
-    aio::Connection, AsyncCommands, Client, FromRedisValue, ToRedisArgs,
-};
+use redis::{aio::Connection, AsyncCommands, Client};
 
 use super::{configs::env_var, errors::Result};
 
@@ -40,69 +37,4 @@ where
         )),
         None => Ok(None),
     }
-}
-
-pub async fn redis_setex<T>(
-    rd: &Client,
-    key: &str,
-    value: T,
-    expires_in: Duration,
-) -> Result<()>
-where
-    T: serde::Serialize,
-{
-    let mut conn = borrow(rd).await?;
-    redis::cmd("SETEX")
-        .arg(key)
-        .arg(expires_in.num_seconds())
-        .arg(
-            serde_json::to_string(&value)
-                .context(format!("redis SETEX serialize failed {}", key))?,
-        )
-        .query_async(&mut conn)
-        .await
-        .context(format!("redis SETEX failed {}", key))?;
-    Ok(())
-}
-
-pub async fn redis_hgetall<T: FromRedisValue>(
-    client: &Client,
-    key: &str,
-) -> Result<T> {
-    let mut conn = borrow(client).await?;
-    Ok(redis::cmd("HGETALL")
-        .arg(key)
-        .query_async(&mut conn)
-        .await
-        .context(format!("redis HSET failed {}", key))?)
-}
-
-pub async fn redis_hsetex<K, V>(
-    client: &Client,
-    key: &str,
-    value: Vec<(K, V)>,
-    expires_in: Option<Duration>,
-) -> Result<()>
-where
-    K: ToRedisArgs,
-    V: ToRedisArgs,
-{
-    let mut conn = borrow(client).await?;
-
-    redis::cmd("HSET")
-        .arg(key)
-        .arg(&value)
-        .query_async(&mut conn)
-        .await
-        .context(format!("redis HSET failed {}", key))?;
-    if let Some(exp) = expires_in {
-        redis::cmd("EXPIRE")
-            .arg(key)
-            .arg(exp.num_seconds())
-            .query_async(&mut conn)
-            .await
-            .context(format!("redis EXPIRE failed {}", key))?;
-    }
-
-    Ok(())
 }

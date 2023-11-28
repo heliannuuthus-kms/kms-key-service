@@ -82,38 +82,28 @@ impl RotateExecutor {
     }
 
     pub async fn submit(&self, key_id: &str, interval: Duration) -> Result<()> {
-        if self.keys.get(key_id).is_none() {
-            let mut conn = cache::borrow(&self.rd).await?;
-            let current_timestamp = (Utc::now() + interval).timestamp();
-            conn.sadd(&self.inner_key(current_timestamp), key_id)
-                .await?;
-            self.keys
-                .insert(key_id.to_owned(), (current_timestamp, interval));
-        }
-        Ok(())
-    }
-
-    pub async fn reset(&self, key_id: &str) -> Result<()> {
-        if let Some(timestamp) = self.keys.get(key_id) {
-            let mut conn = cache::borrow(&self.rd).await?;
-            conn.srem(self.inner_key(timestamp.0.to_owned()), key_id)
-                .await?;
-            conn.sadd(
-                &self.inner_key((Utc::now() + timestamp.1).timestamp()),
-                key_id,
-            )
+        let mut conn = cache::borrow(&self.rd).await?;
+        let current_timestamp = (Utc::now() + interval).timestamp();
+        conn.sadd(&self.inner_key(current_timestamp), key_id)
             .await?;
-        }
+        self.keys
+            .insert(key_id.to_owned(), (current_timestamp, interval));
         Ok(())
     }
 
-    pub async fn remove(&self, key_id: &str) -> Result<()> {
-        if let Some(timestamp) = self.keys.get(key_id) {
-            let mut conn = cache::borrow(&self.rd).await?;
-            conn.srem(self.inner_key(timestamp.0.to_owned()), key_id)
-                .await?;
-            self.keys.remove(key_id);
-        }
+    pub async fn reset(&self, key_id: &str, interval: Duration) -> Result<()> {
+        let mut conn = cache::borrow(&self.rd).await?;
+        let timestamp = (Utc::now() + interval).timestamp();
+        conn.srem(self.inner_key(timestamp), key_id).await?;
+        conn.sadd(&self.inner_key(timestamp), key_id).await?;
+        Ok(())
+    }
+
+    pub async fn remove(&self, key_id: &str, interval: Duration) -> Result<()> {
+        let mut conn = cache::borrow(&self.rd).await?;
+        conn.srem(self.inner_key((Utc::now() + interval).timestamp()), key_id)
+            .await?;
+        self.keys.remove(key_id);
         Ok(())
     }
 
@@ -423,7 +413,8 @@ pub async fn create_key_version(
     key_meta_service::batch_set_key_meta(db, key_metas).await?;
 
     if key_meta.rotation_interval >= 0 {
-        re.reset(key_id).await?;
+        re.reset(key_id, Duration::seconds(key_meta.rotation_interval))
+            .await?;
     }
 
     Ok(KeyVersionResult::from(key_meta_new))
