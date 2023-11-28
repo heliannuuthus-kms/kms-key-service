@@ -1,6 +1,6 @@
 use sea_orm::{
-    sea_query::OnConflict, ActiveValue::NotSet, ConnectionTrait, EntityTrait,
-    IntoActiveModel, QuerySelect,
+    sea_query::OnConflict, ConnectionTrait, EntityTrait, IntoActiveModel,
+    QuerySelect,
 };
 
 use crate::{common::errors::Result, entity::prelude::*};
@@ -10,12 +10,9 @@ pub async fn insert_or_update_key_metas<C: ConnectionTrait>(
     db: &C,
     models: Vec<KeyMetaModel>,
 ) -> Result<()> {
-    KeyMetaEntity::insert_many(models.into_iter().map(|model| {
-        let mut active = model.into_active_model();
-        active.created_at = NotSet;
-        active.updated_at = NotSet;
-        active
-    }))
+    KeyMetaEntity::insert_many(
+        models.into_iter().map(KeyMetaModel::into_active_model),
+    )
     .on_conflict(
         OnConflict::columns([KeyMetaColumn::KeyId, KeyMetaColumn::Version])
             .update_columns([

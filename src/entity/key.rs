@@ -2,6 +2,7 @@
 
 use std::fmt::Debug;
 
+use chrono::Utc;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -9,14 +10,7 @@ use utoipa::ToSchema;
 use crate::crypto::types::KeyType;
 
 #[derive(
-    Clone,
-    PartialEq,
-    DeriveEntityModel,
-    Eq,
-    Serialize,
-    Deserialize,
-    Default,
-    ToSchema,
+    Clone, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, ToSchema,
 )]
 #[sea_orm(table_name = "t_key")]
 pub struct Model {
@@ -66,3 +60,18 @@ pub struct AsymmtricKeyPair {
 pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
+
+impl Default for Model {
+    fn default() -> Self {
+        Self {
+            id: Default::default(),
+            key_id: Default::default(),
+            kms_id: Default::default(),
+            key_type: Default::default(),
+            key_pair: Default::default(),
+            version: Default::default(),
+            updated_at: Utc::now().naive_local(),
+            created_at: Utc::now().naive_local(),
+        }
+    }
+}

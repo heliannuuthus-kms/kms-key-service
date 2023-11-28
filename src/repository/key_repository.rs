@@ -15,15 +15,9 @@ pub async fn insert_keys<C: ConnectionTrait>(
     db: &C,
     models: Vec<KeyModel>,
 ) -> Result<()> {
-    tracing::debug!("print insert many: {:?}", models);
-    KeyEntity::insert_many(models.into_iter().map(|model| {
-        let mut active = model.into_active_model();
-        active.created_at = NotSet;
-        active.updated_at = NotSet;
-        active
-    }))
-    .exec(db)
-    .await?;
+    KeyEntity::insert_many(models.into_iter().map(KeyModel::into_active_model))
+        .exec(db)
+        .await?;
     Ok(())
 }
 

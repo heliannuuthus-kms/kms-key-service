@@ -1,9 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
-use chrono::{Duration, Local, Utc};
+use anyhow::Context;
+use chrono::{Duration, NaiveDateTime, Utc};
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use moka::future::Cache;
+use redis::AsyncCommands;
 use sea_orm::*;
 use serde_json::json;
 
@@ -13,7 +15,7 @@ use super::{
 };
 use crate::{
     common::{
-        cache::{redis_get, redis_setex, RdConn},
+        cache::{self, redis_get, RdConn},
         datasource::{self, PaginatedResult, Paginator},
         errors::{Result, ServiceError},
         utils,
@@ -58,8 +60,66 @@ lazy_static! {
             .build();
 }
 
+#[derive(Clone)]
+pub struct RotateExecutor {
+    db: DbConn,
+    rd: RdConn,
+}
+
+impl RotateExecutor {
+    pub async fn new(db: DbConn, rd: RdConn) -> Self {
+        RotateExecutor { db, rd }
+    }
+
+    fn inner_key(&self, timestamp: i64) -> String {
+        format!("kms:keys:rotation:{}", timestamp)
+    }
+
+    pub async fn submit(&self, key_id: &str, interval: Duration) -> Result<()> {
+        let mut conn = cache::borrow(&self.rd).await?;
+        let current_timestamp = (Utc::now() + interval).timestamp();
+        conn.sadd(&self.inner_key(current_timestamp), key_id)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn remove(
+        &self,
+        key_id: &str,
+        timestamp: NaiveDateTime,
+    ) -> Result<()> {
+        let mut conn = cache::borrow(&self.rd).await?;
+        conn.srem(self.inner_key(timestamp.timestamp()), key_id)
+            .await?;
+        Ok(())
+    }
+
+    pub async fn poll_purge(&self) -> Result<()> {
+        let mut delay =
+            tokio::time::interval(Duration::seconds(1).to_std().unwrap());
+        loop {
+            delay.tick().await;
+            let mut conn = cache::borrow(&self.rd).await?;
+            let key = self.inner_key(Utc::now().timestamp());
+            let key_ids: HashSet<String> =
+                conn.smembers(key.to_owned()).await?;
+            conn.del(key).await?;
+            futures::future::join_all(
+                key_ids
+                    .iter()
+                    .map(|key_id| async {
+                        create_key_version(&self.db, self, key_id).await
+                    })
+                    .collect_vec(),
+            )
+            .await;
+        }
+    }
+}
+
 pub async fn create_key(
     db: &DbConn,
+    re: RotateExecutor,
     data: &KeyCreateForm,
 ) -> Result<KeyCreateResult> {
     let key_alg_meta = algorithm::select_meta(data.spec);
@@ -107,20 +167,6 @@ pub async fn create_key(
         primary_key_version: key_meta.primary_version.to_owned(),
         ..Default::default()
     };
-    // fill key rotation interval
-    if data.enable_automatic_rotation {
-        if let Some(ri) = data.rotation_interval {
-            key_meta.rotation_interval = ri.num_seconds();
-            result.rotate_interval = Some(ri);
-            result.next_rotated_at = Some(Local::now().fixed_offset() + ri);
-        } else {
-            return Err(ServiceError::BadRequest(
-                "please set `rotation_interval`, if enable \
-                 `enable_automatic_rotation`"
-                    .to_owned(),
-            ));
-        }
-    }
 
     if KeyOrigin::Kms.eq(&key_meta.origin) {
         key.generate_key(data.spec)?;
@@ -141,6 +187,23 @@ pub async fn create_key(
         key.key_id,
         key.version
     );
+
+    // fill key rotation interval
+    if data.enable_automatic_rotation {
+        if let Some(ri) = data.rotation_interval {
+            key_meta.rotation_interval = ri.num_seconds();
+            result.rotate_interval = Some(ri);
+            result.next_rotated_at = Some(key_meta.created_at + ri);
+            re.submit(key_id, ri).await?;
+        } else {
+            return Err(ServiceError::BadRequest(
+                "please set `rotation_interval`, if enable \
+                 `enable_automatic_rotation`"
+                    .to_owned(),
+            ));
+        }
+    }
+
     save_key(db, &key).await?;
     key_meta_service::set_key_meta(db, key_meta).await?;
 
@@ -189,16 +252,17 @@ pub async fn generate_key_import_params(
     let expires_in = Duration::days(1);
 
     let import_token = utils::generate_b64(128)?;
-    redis_setex(
-        rd,
-        &format!("kms:keys:import_material:{}", key_id),
-        KeyMaterialImportParams {
+    let mut conn = cache::borrow(rd).await?;
+    conn.set_ex(
+        format!("kms:keys:import_material:{}", key_id),
+        serde_json::to_string(&KeyMaterialImportParams {
             token: import_token.to_owned(),
             private_key: utils::encode64(&left),
             wrapping_spec: form.wrapping_key_spec,
             wrapping_algorithm: form.wrapping_algorithm,
-        },
-        expires_in,
+        })
+        .context("serilize key material failed")?,
+        expires_in.num_seconds() as usize,
     )
     .await?;
     Ok(KeyMaterialImportParamsResult {
@@ -215,7 +279,6 @@ pub async fn import_key_material(
     data: &KeyImportForm,
 ) -> Result<()> {
     let key_id = &data.key_id;
-
     let material_data = match redis_get::<KeyMaterialImportParams>(
         rd,
         &format!("kms:keys:import_material:{}", key_id),
@@ -284,6 +347,7 @@ pub async fn import_key_material(
 
 pub async fn create_key_version(
     db: &DbConn,
+    re: &RotateExecutor,
     key_id: &str,
 ) -> Result<KeyVersionResult> {
     let mut key_meta: KeyMetaModel = get_main_key_meta(db, key_id).await?;
@@ -330,8 +394,16 @@ pub async fn create_key_version(
         .collect_vec();
 
     key_metas.push(key_meta_new.clone());
-    tracing::debug!("print create new key version: {:?}", key_metas);
+
     key_meta_service::batch_set_key_meta(db, key_metas).await?;
+
+    if key_meta.rotation_interval >= 0 {
+        let last_rotation_at =
+            key_meta.last_rotation_at.unwrap_or(key_meta.created_at);
+        let interval = Duration::seconds(key_meta.rotation_interval);
+        re.remove(key_id, last_rotation_at + interval).await?;
+        re.submit(key_id, interval).await?;
+    }
 
     Ok(KeyVersionResult::from(key_meta_new))
 }
@@ -457,5 +529,57 @@ pub async fn get_key_by_alias(db: &DbConn, alias: &str) -> Result<KeyModel> {
                 )))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use std::{
+        sync::{Arc, Mutex},
+        task::Poll,
+        thread,
+    };
+
+    use chrono::{Duration, Utc};
+    use futures::ready;
+    use tokio::time::Instant;
+
+    use crate::common::utils;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_delay_queue() {
+        let queue = Arc::new(Mutex::new(tokio_util::time::DelayQueue::new()));
+        let rotation = |key_id: String| {
+            println!(
+                "thread_id: {:?}, rotate_key, key_id: {}, timestamp: {:?}",
+                thread::current().id(),
+                key_id,
+                Utc::now().naive_local()
+            )
+        };
+
+        let tasks = (0 .. 10).map(|i| {
+            let queue2 = queue.clone();
+            tokio::spawn(async move {
+                let mut q1 = queue2.lock().unwrap();
+                println!("thread_id: {:?}", thread::current().id(),);
+                let _key = q1.insert_at(
+                    rotation,
+                    Instant::now() + Duration::seconds(i).to_std().unwrap(),
+                );
+            })
+        });
+
+        futures::future::join_all(tasks).await;
+
+        futures::future::poll_fn(|cx| {
+            let mut q1 = queue.lock().unwrap();
+            while let Some(entry) = ready!(q1.poll_expired(cx)) {
+                entry.get_ref()(utils::uuid());
+            }
+            Poll::Ready(())
+        })
+        .await
     }
 }

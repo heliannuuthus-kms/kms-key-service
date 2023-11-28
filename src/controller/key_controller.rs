@@ -2,7 +2,6 @@ use axum::{
     extract::{Path, State},
     response::IntoResponse,
 };
-use http::StatusCode;
 use serde_json::json;
 
 use crate::{
@@ -28,12 +27,14 @@ use crate::{
     request_body = KeyCreateForm
 )]
 pub async fn create_key(
-    State(States { db, .. }): State<States>,
+    State(States { db, extra, .. }): State<States>,
     Json(form): Json<KeyCreateForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create master key, data: {:?}", form);
 
-    key_service::create_key(&db, &form).await.map(axum::Json)
+    key_service::create_key(&db, extra.re, &form)
+        .await
+        .map(axum::Json)
 }
 
 #[utoipa::path(
@@ -48,7 +49,7 @@ pub async fn create_key(
     ),
 )]
 pub async fn import_key_params(
-    State(States { db, rd }): State<States>,
+    State(States { db, rd, .. }): State<States>,
     Query(form): Query<KeyImportParamsQuery>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create import key material, data: {:?}", form);
@@ -70,13 +71,13 @@ pub async fn import_key_params(
 )]
 #[axum::debug_handler]
 pub async fn import_key(
-    State(States { db, rd }): State<States>,
+    State(States { db, rd, .. }): State<States>,
     Json(form): Json<KeyImportForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("import key material, data: {:?}", form);
-    key_service::import_key_material(&db, &rd, &form).await?;
-    Ok((StatusCode::OK, axum::Json(json!({"key_id": form.key_id})))
-        .into_response())
+    key_service::import_key_material(&db, &rd, &form)
+        .await
+        .map(|_| axum::Json(json!({"key_id": form.key_id})))
 }
 
 #[utoipa::path(
@@ -123,11 +124,11 @@ pub async fn list_kms_keys(
     ),
   )]
 pub async fn create_key_version(
-    State(States { db, .. }): State<States>,
+    State(States { db, extra, .. }): State<States>,
     Path(key_id): Path<String>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create key version, key_id: {}", key_id);
-    key_service::create_key_version(&db, &key_id)
+    key_service::create_key_version(&db, &extra.re, &key_id)
         .await
         .map(axum::Json)
 }

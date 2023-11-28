@@ -19,6 +19,7 @@ use controller::{
 };
 use dotenvy::dotenv;
 use sea_orm::DbConn;
+use service::key_service::RotateExecutor;
 use utoipa::OpenApi;
 use utoipa_redoc::Redoc;
 
@@ -34,6 +35,12 @@ mod service;
 pub struct States {
     pub db: DbConn,
     pub rd: RdConn,
+    pub extra: ExtraStates,
+}
+
+#[derive(Clone)]
+pub struct ExtraStates {
+    re: RotateExecutor,
 }
 
 #[tokio::main]
@@ -42,11 +49,19 @@ async fn main() {
     let api_doc = openapi.to_pretty_json().unwrap();
     dotenv().expect(".env file not found");
     common::log::init();
+    let db = common::datasource::init().await.unwrap();
+    let rd = common::cache::init().await.unwrap();
+    let executor = RotateExecutor::new(db.clone(), rd.clone()).await;
     let state = States {
-        db: common::datasource::init().await.unwrap(),
-        rd: common::cache::init().await.unwrap(),
+        db,
+        rd,
+        extra: ExtraStates {
+            re: executor.clone(),
+        },
     };
-
+    tokio::spawn(async move {
+        executor.poll_purge().await.unwrap();
+    });
     let key_router = Router::new()
         .route("/", post(create_key))
         .route("/import", post(import_key))

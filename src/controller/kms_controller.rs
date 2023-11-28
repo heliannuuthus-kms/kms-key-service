@@ -2,7 +2,6 @@ use axum::{
     extract::{Path, State},
     response::IntoResponse,
 };
-use http::StatusCode;
 
 use crate::{
     common::{
@@ -40,7 +39,7 @@ pub async fn get_kms(
             )))
         }
     };
-    Ok((StatusCode::OK, Json(kms).into_response()))
+    Ok(axum::Json(kms))
 }
 
 #[utoipa::path(
@@ -87,7 +86,7 @@ pub async fn set_kms(
 ) -> Result<impl IntoResponse> {
     let mut model = kms_service::get_kms(&db, &kms_id).await?;
     kms_service::set_kms(&db, model.patched(form)).await?;
-    Ok(StatusCode::OK.into_response())
+    Ok(())
 }
 
 #[utoipa::path(
