@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use chrono::Duration;
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use moka::future::Cache;
 use sea_orm::DbConn;
@@ -8,15 +7,18 @@ use sea_orm::DbConn;
 use crate::{
     common::errors::{Result, ServiceError},
     crypto::types::KEY_STATE_MAP,
+    encode_key,
     entity::prelude::*,
     pojo::form::key_extra::KeyChangeStateBody,
     repository::{key_meta_repository, key_repository},
 };
 
+pub const KEY_META_CACHE_KEY: &str = "key_meta_cache";
+
 lazy_static! {
-    pub static ref KEY_VERSION_META_CACHE: Cache<String, HashMap<String, KeyMetaModel>> =
+    pub static ref KEY_META_CACHE: Cache<String, Vec<KeyMetaModel>> =
         moka::future::CacheBuilder::new(64 * 1024 * 1024)
-            .name("key_meta_version_cache")
+            .name(KEY_META_CACHE_KEY)
             .time_to_idle(Duration::minutes(5).to_std().unwrap())
             .time_to_live(Duration::minutes(30).to_std().unwrap())
             .build();
@@ -55,9 +57,9 @@ pub async fn batch_set_key_meta(
     models: Vec<KeyMetaModel>,
 ) -> Result<()> {
     key_meta_repository::insert_or_update_key_metas(db, models.clone()).await?;
-    for model in models {
-        KEY_VERSION_META_CACHE
-            .remove(&format!("kms:keys:key_meta_version:{}", model.version))
+    for key_id in models.into_iter().map(|model| model.key_id).unique() {
+        KEY_META_CACHE
+            .remove(&encode_key!(KEY_META_CACHE_KEY, key_id))
             .await;
     }
     Ok(())
@@ -70,8 +72,8 @@ pub async fn get_main_key_meta(
     get_key_metas(db, key_id)
         .await?
         .into_iter()
-        .filter_map(|(version, meta)| {
-            if version.eq(&meta.primary_version) {
+        .filter_map(|meta| {
+            if meta.version.eq(&meta.primary_version) {
                 Some(meta)
             } else {
                 None
@@ -89,36 +91,31 @@ pub async fn get_version_key_meta(
     key_id: &str,
     version: &str,
 ) -> Result<KeyMetaModel> {
-    let version_metas = get_key_metas(db, key_id).await?;
-
-    Ok(version_metas
-        .get(version)
+    get_key_metas(db, key_id)
+        .await?
+        .into_iter()
+        .find(|model| model.version.eq(version))
         .ok_or(ServiceError::NotFount(format!(
             "key_id is invalid, key_id: {}",
             key_id
-        )))?
-        .clone())
+        )))
 }
 
 pub async fn get_key_metas(
     db: &DbConn,
     key_id: &str,
-) -> Result<HashMap<String, KeyMetaModel>> {
-    let version_metas_cache_id =
-        format!("kms:keys:key_meta_version:{}", key_id);
-
-    if let Some(version_metas) =
-        KEY_VERSION_META_CACHE.get(&version_metas_cache_id).await
-    {
+) -> Result<Vec<KeyMetaModel>> {
+    let cache_key = encode_key!(KEY_META_CACHE_KEY, key_id);
+    if let Some(version_metas) = KEY_META_CACHE.get(&cache_key).await {
         Ok(version_metas)
     } else {
-        let version_metas = key_repository::select_key_metas(db, key_id)
-            .await?
-            .into_iter()
-            .map(|model| (model.version.to_owned(), model))
-            .collect::<HashMap<String, KeyMetaModel>>();
-        KEY_VERSION_META_CACHE
-            .insert(version_metas_cache_id, version_metas.clone())
+        let version_metas =
+            key_repository::select_key_metas(db, key_id).await?;
+        KEY_META_CACHE
+            .insert(
+                encode_key!(KEY_META_CACHE_KEY, key_id),
+                version_metas.clone(),
+            )
             .await;
         Ok(version_metas)
     }
