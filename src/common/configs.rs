@@ -15,11 +15,11 @@ where
 {
     match std::env::var(name) {
         Ok(var) => var.parse::<T>().unwrap_or_else(|_| {
-            tracing::warn!("{} env variable parse failed", name);
+            tracing::debug!("{} env variable parse failed", name);
             default_value
         }),
         Err(_) => {
-            tracing::warn!("{} env variable load failed", name);
+            tracing::debug!("{} env variable load failed", name);
             default_value
         }
     }

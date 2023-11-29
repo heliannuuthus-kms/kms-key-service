@@ -16,6 +16,7 @@ use super::{
 use crate::{
     common::{
         cache::{self, redis_get, RdConn},
+        configs,
         datasource::{self, PaginatedResult, Paginator},
         errors::{Result, ServiceError},
         utils,
@@ -71,48 +72,78 @@ impl RotateExecutor {
         RotateExecutor { db, rd }
     }
 
-    fn inner_key(&self, timestamp: i64) -> String {
-        format!("kms:keys:rotation:{}", timestamp)
+    fn key(&self) -> String {
+        "kms:keys:rotation".to_owned()
     }
 
     pub async fn submit(&self, key_id: &str, interval: Duration) -> Result<()> {
         let mut conn = cache::borrow(&self.rd).await?;
-        let current_timestamp = (Utc::now() + interval).timestamp();
-        conn.sadd(&self.inner_key(current_timestamp), key_id)
-            .await?;
+        let current_timestamp =
+            (Utc::now().naive_local() + interval).timestamp();
+        conn.zadd(&self.key(), key_id, current_timestamp).await?;
         Ok(())
     }
 
-    pub async fn remove(
-        &self,
-        key_id: &str,
-        timestamp: NaiveDateTime,
-    ) -> Result<()> {
+    pub async fn remove(&self, key_id: &str) -> Result<()> {
         let mut conn = cache::borrow(&self.rd).await?;
-        conn.srem(self.inner_key(timestamp.timestamp()), key_id)
-            .await?;
+        conn.zrem(self.key(), key_id).await?;
         Ok(())
     }
 
     pub async fn poll_purge(&self) -> Result<()> {
-        let mut delay =
-            tokio::time::interval(Duration::seconds(1).to_std().unwrap());
+        let default_interval =
+            configs::env_var_default::<i64>("DEFAULT_ROTATION_INTERVAL", 5);
+        let mut delay = tokio::time::interval(
+            Duration::seconds(default_interval).to_std().unwrap(),
+        );
         loop {
-            delay.tick().await;
             let mut conn = cache::borrow(&self.rd).await?;
-            let key = self.inner_key(Utc::now().timestamp());
-            let key_ids: HashSet<String> =
-                conn.smembers(key.to_owned()).await?;
-            conn.del(key).await?;
-            futures::future::join_all(
-                key_ids
-                    .iter()
-                    .map(|key_id| async {
-                        create_key_version(&self.db, self, key_id).await
-                    })
-                    .collect_vec(),
-            )
-            .await;
+
+            let mut lowest_key: Vec<(String, i64)> = conn
+                .zrangebyscore_limit_withscores(
+                    self.key(),
+                    Utc::now().naive_local().timestamp(),
+                    "+inf",
+                    0,
+                    1,
+                )
+                .await?;
+
+            let interval = lowest_key
+                .pop()
+                .map(|(_key_id, timestamp)| {
+                    std::cmp::min(
+                        NaiveDateTime::from_timestamp_opt(timestamp, 0)
+                            .unwrap()
+                            .signed_duration_since(Utc::now().naive_local())
+                            .num_seconds(),
+                        default_interval,
+                    )
+                })
+                .unwrap_or(default_interval);
+            tracing::info!("next rotate interval: {}", interval);
+
+            delay.reset_after(Duration::seconds(interval).to_std().unwrap());
+            delay.tick().await;
+
+            let end = (Utc::now() + Duration::minutes(1))
+                .naive_local()
+                .timestamp();
+
+            let key_ids: Option<Vec<String>> =
+                conn.zrange(self.key(), 0, end.try_into().unwrap()).await?;
+            if let Some(key_ids) = key_ids {
+                conn.zrembyscore(self.key(), 0, end).await?;
+                futures::future::join_all(
+                    key_ids
+                        .iter()
+                        .map(|key_id| async {
+                            create_key_version(&self.db, self, key_id).await
+                        })
+                        .collect_vec(),
+                )
+                .await;
+            }
         }
     }
 }
@@ -180,13 +211,6 @@ pub async fn create_key(
         key_meta.state = KeyState::PendingImport;
         result.key_state = key_meta.state
     };
-
-    tracing::info!(
-        "presist key, kms_id: {}, key_id: {}, version: {}",
-        key.kms_id,
-        key.key_id,
-        key.version
-    );
 
     // fill key rotation interval
     if data.enable_automatic_rotation {
@@ -398,10 +422,8 @@ pub async fn create_key_version(
     key_meta_service::batch_set_key_meta(db, key_metas).await?;
 
     if key_meta.rotation_interval >= 0 {
-        let last_rotation_at =
-            key_meta.last_rotation_at.unwrap_or(key_meta.created_at);
         let interval = Duration::seconds(key_meta.rotation_interval);
-        re.remove(key_id, last_rotation_at + interval).await?;
+        re.remove(key_id).await?;
         re.submit(key_id, interval).await?;
     }
 
