@@ -1,6 +1,5 @@
 use sea_orm::{
     sea_query::OnConflict, ConnectionTrait, EntityTrait, IntoActiveModel,
-    QuerySelect,
 };
 
 use crate::{common::errors::Result, entity::prelude::*};

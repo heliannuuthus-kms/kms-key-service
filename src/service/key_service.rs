@@ -1,5 +1,3 @@
-use std::collections::{HashMap, HashSet};
-
 use anyhow::Context;
 use chrono::{Duration, NaiveDateTime, Utc};
 use itertools::Itertools;
@@ -16,6 +14,7 @@ use super::{
 use crate::{
     common::{
         cache::{self, redis_get, RdConn},
+        configs,
         datasource::{self, PaginatedResult, Paginator},
         errors::{Result, ServiceError},
         utils,
@@ -24,6 +23,7 @@ use crate::{
         algorithm::{self},
         types::{self, KeyOrigin, KeyState, KeyType},
     },
+    encode_key,
     entity::{
         key::{AsymmtricKeyPair, SymmtricKeyPair},
         prelude::*,
@@ -36,25 +36,15 @@ use crate::{
             KeyMaterialImportParamsResult, KeyVersionResult,
         },
     },
-    repository::{key_alias_repository, key_repository},
+    repository::key_repository,
 };
 
+pub const KEY_CACHE_KEY: &str = "key_cache";
+
 lazy_static! {
-    static ref KEY_INDEX_CACHE: Cache<String, HashSet<String>> =
+    static ref KEY_CACHE: Cache<String, Vec<KeyModel>> =
         moka::future::CacheBuilder::new(64 * 1024 * 1024)
-            .name("key_index_cache")
-            .time_to_idle(Duration::minutes(5).to_std().unwrap())
-            .time_to_live(Duration::minutes(30).to_std().unwrap())
-            .build();
-    static ref KEY_VERSION_CACHE: Cache<String, HashMap<String, KeyModel>> =
-        moka::future::CacheBuilder::new(64 * 1024 * 1024)
-            .name("key_version_cache")
-            .time_to_idle(Duration::minutes(5).to_std().unwrap())
-            .time_to_live(Duration::minutes(30).to_std().unwrap())
-            .build();
-    pub static ref ALIAS_KEY_CACHE: Cache<String, KeyModel> =
-        moka::future::CacheBuilder::new(64 * 1024 * 1024)
-            .name("alias_key_cache")
+            .name(KEY_CACHE_KEY)
             .time_to_idle(Duration::minutes(5).to_std().unwrap())
             .time_to_live(Duration::minutes(30).to_std().unwrap())
             .build();
@@ -71,48 +61,78 @@ impl RotateExecutor {
         RotateExecutor { db, rd }
     }
 
-    fn inner_key(&self, timestamp: i64) -> String {
-        format!("kms:keys:rotation:{}", timestamp)
+    fn key(&self) -> String {
+        "kms:keys:rotation".to_owned()
     }
 
     pub async fn submit(&self, key_id: &str, interval: Duration) -> Result<()> {
-        let mut conn = cache::borrow(&self.rd).await?;
-        let current_timestamp = (Utc::now() + interval).timestamp();
-        conn.sadd(&self.inner_key(current_timestamp), key_id)
-            .await?;
+        let mut conn = cache::conn(&self.rd).await?;
+        let current_timestamp =
+            (Utc::now().naive_local() + interval).timestamp();
+        conn.zadd(&self.key(), key_id, current_timestamp).await?;
         Ok(())
     }
 
-    pub async fn remove(
-        &self,
-        key_id: &str,
-        timestamp: NaiveDateTime,
-    ) -> Result<()> {
-        let mut conn = cache::borrow(&self.rd).await?;
-        conn.srem(self.inner_key(timestamp.timestamp()), key_id)
-            .await?;
+    pub async fn remove(&self, key_id: &str) -> Result<()> {
+        let mut conn = cache::conn(&self.rd).await?;
+        conn.zrem(self.key(), key_id).await?;
         Ok(())
     }
 
     pub async fn poll_purge(&self) -> Result<()> {
-        let mut delay =
-            tokio::time::interval(Duration::seconds(1).to_std().unwrap());
+        let default_interval =
+            configs::env_var_default::<i64>("DEFAULT_ROTATION_INTERVAL", 5);
+        let mut delay = tokio::time::interval(
+            Duration::seconds(default_interval).to_std().unwrap(),
+        );
         loop {
+            let mut conn = cache::conn(&self.rd).await?;
+
+            let mut lowest_key: Vec<(String, i64)> = conn
+                .zrangebyscore_limit_withscores(
+                    self.key(),
+                    Utc::now().naive_local().timestamp(),
+                    "+inf",
+                    0,
+                    1,
+                )
+                .await?;
+
+            let interval = lowest_key
+                .pop()
+                .map(|(_key_id, timestamp)| {
+                    std::cmp::min(
+                        NaiveDateTime::from_timestamp_opt(timestamp, 0)
+                            .unwrap()
+                            .signed_duration_since(Utc::now().naive_local())
+                            .num_seconds(),
+                        default_interval,
+                    )
+                })
+                .unwrap_or(default_interval);
+            tracing::info!("next rotate interval: {}", interval);
+
+            delay.reset_after(Duration::seconds(interval).to_std().unwrap());
             delay.tick().await;
-            let mut conn = cache::borrow(&self.rd).await?;
-            let key = self.inner_key(Utc::now().timestamp());
-            let key_ids: HashSet<String> =
-                conn.smembers(key.to_owned()).await?;
-            conn.del(key).await?;
-            futures::future::join_all(
-                key_ids
-                    .iter()
-                    .map(|key_id| async {
-                        create_key_version(&self.db, self, key_id).await
-                    })
-                    .collect_vec(),
-            )
-            .await;
+
+            let end = (Utc::now() + Duration::minutes(1))
+                .naive_local()
+                .timestamp();
+
+            let key_ids: Option<Vec<String>> =
+                conn.zrange(self.key(), 0, end.try_into().unwrap()).await?;
+            if let Some(key_ids) = key_ids {
+                conn.zrembyscore(self.key(), 0, end).await?;
+                futures::future::join_all(
+                    key_ids
+                        .iter()
+                        .map(|key_id| async {
+                            create_key_version(&self.db, self, key_id).await
+                        })
+                        .collect_vec(),
+                )
+                .await;
+            }
         }
     }
 }
@@ -181,13 +201,6 @@ pub async fn create_key(
         result.key_state = key_meta.state
     };
 
-    tracing::info!(
-        "presist key, kms_id: {}, key_id: {}, version: {}",
-        key.kms_id,
-        key.key_id,
-        key.version
-    );
-
     // fill key rotation interval
     if data.enable_automatic_rotation {
         if let Some(ri) = data.rotation_interval {
@@ -216,29 +229,7 @@ pub async fn generate_key_import_params(
     form: &KeyImportParamsQuery,
 ) -> Result<KeyMaterialImportParamsResult> {
     let key_id = &form.key_id;
-    let key_metas = get_key_metas(db, key_id).await?;
-
-    if key_metas.is_empty() {
-        return Err(ServiceError::NotFount(format!(
-            "key is nonexistent, key_id: {}",
-            key_id
-        )));
-    }
-
-    let cmk_meta = key_metas
-        .iter()
-        .filter_map(|(version, key_meta)| {
-            if version.to_owned().eq(&key_meta.primary_version.to_owned()) {
-                Some(key_meta.clone())
-            } else {
-                None
-            }
-        })
-        .next()
-        .ok_or(ServiceError::NotFount(format!(
-            "cmk key is nonexistent, key_id: {}",
-            key_id
-        )))?;
+    let cmk_meta = get_main_key_meta(db, key_id).await?;
     if !cmk_meta.state.eq(&KeyState::PendingImport) {
         return Err(ServiceError::BadRequest(format!(
             "key is imported: {}",
@@ -252,7 +243,7 @@ pub async fn generate_key_import_params(
     let expires_in = Duration::days(1);
 
     let import_token = utils::generate_b64(128)?;
-    let mut conn = cache::borrow(rd).await?;
+    let mut conn = cache::conn(rd).await?;
     conn.set_ex(
         format!("kms:keys:import_material:{}", key_id),
         serde_json::to_string(&KeyMaterialImportParams {
@@ -383,8 +374,8 @@ pub async fn create_key_version(
     let mut key_metas = get_key_metas(db, key_id)
         .await?
         .into_iter()
-        .map(|(version, mut meta)| {
-            if version.eq(&meta.primary_version) {
+        .map(|mut meta| {
+            if meta.version.eq(&meta.primary_version) {
                 // old key version
                 meta.last_rotation_at = Some(Utc::now().naive_utc());
             };
@@ -398,10 +389,8 @@ pub async fn create_key_version(
     key_meta_service::batch_set_key_meta(db, key_metas).await?;
 
     if key_meta.rotation_interval >= 0 {
-        let last_rotation_at =
-            key_meta.last_rotation_at.unwrap_or(key_meta.created_at);
         let interval = Duration::seconds(key_meta.rotation_interval);
-        re.remove(key_id, last_rotation_at + interval).await?;
+        re.remove(key_id).await?;
         re.submit(key_id, interval).await?;
     }
 
@@ -414,34 +403,16 @@ async fn save_key(db: &DbConn, model: &KeyModel) -> Result<()> {
 
 async fn batch_save_key(db: &DbConn, models: Vec<KeyModel>) -> Result<()> {
     key_repository::insert_keys(db, models.clone()).await?;
-    for model in models {
-        KEY_INDEX_CACHE
-            .remove(&format!("kms:keys:key_index:{}", model.kms_id))
-            .await;
-        KEY_VERSION_CACHE
-            .remove(&format!("kms:keys:key_version:{}", model.key_id))
-            .await;
+
+    for key_id in models.into_iter().map(|model| model.key_id).unique() {
+        KEY_CACHE.remove(&encode_key!(KEY_CACHE_KEY, key_id)).await;
     }
     Ok(())
 }
 
 pub async fn get_main_key(db: &DbConn, key_id: &str) -> Result<KeyModel> {
-    let key_version_keys = get_keys(db, key_id).await?;
-
-    key_version_keys
-        .into_iter()
-        .filter_map(|(version, model)| {
-            if model.version.eq(&version) {
-                Some(model)
-            } else {
-                None
-            }
-        })
-        .next()
-        .ok_or(ServiceError::NotFount(format!(
-            "key_id is invalid, key_id: {}",
-            key_id
-        )))
+    let meta = get_main_key_meta(db, key_id).await?;
+    get_version_key(db, key_id, &meta.version).await
 }
 
 pub async fn get_version_key(
@@ -449,14 +420,14 @@ pub async fn get_version_key(
     key_id: &str,
     version: &str,
 ) -> Result<KeyModel> {
-    let key_version_keys = get_keys(db, key_id).await?;
-    Ok(key_version_keys
-        .get(version)
+    get_keys(db, key_id)
+        .await?
+        .into_iter()
+        .find(|key| key.version.eq(version))
         .ok_or(ServiceError::NotFount(format!(
             "key_id is invalid, key_id: {}",
             key_id
-        )))?
-        .clone())
+        )))
 }
 
 pub async fn list_kms_keys(
@@ -483,52 +454,14 @@ pub async fn list_key_versions(
     paginated_result!(result, paginator.limit.unwrap_or(10))
 }
 
-pub async fn get_keys(
-    db: &DbConn,
-    key_id: &str,
-) -> Result<HashMap<String, KeyModel>> {
-    let key_version_cache_id = format!("kms:keys:key_version:{}", key_id);
-    if let Some(version_keys) =
-        KEY_VERSION_CACHE.get(&key_version_cache_id).await
-    {
-        tracing::debug!("print version keys: {:?}", version_keys);
+pub async fn get_keys(db: &DbConn, key_id: &str) -> Result<Vec<KeyModel>> {
+    let cache_key = encode_key!(KEY_CACHE_KEY, key_id);
+    if let Some(version_keys) = KEY_CACHE.get(&cache_key).await {
         Ok(version_keys)
     } else {
-        let ks = key_repository::select_key(db, key_id)
-            .await?
-            .into_iter()
-            .map(|model| (model.version.to_owned(), model.clone()))
-            .collect::<HashMap<String, KeyModel>>();
-
-        KEY_VERSION_CACHE
-            .insert(key_version_cache_id, ks.clone())
-            .await;
-
-        Ok(ks.clone())
-    }
-}
-
-pub async fn get_key_by_alias(db: &DbConn, alias: &str) -> Result<KeyModel> {
-    let alias_key_cache_key = format!("kms:keys:alias_key:{}", alias);
-    match ALIAS_KEY_CACHE.get(&alias_key_cache_key).await {
-        Some(key) => Ok(key),
-        None => {
-            if let Some(key_alias) =
-                key_alias_repository::select_alias(db, alias).await?
-            {
-                let key = get_main_key(db, &key_alias.key_id).await?;
-                ALIAS_KEY_CACHE
-                    .insert(alias_key_cache_key, key.clone())
-                    .await;
-
-                Ok(key)
-            } else {
-                Err(ServiceError::NotFount(format!(
-                    "key is nonexistent, alias: {}",
-                    alias
-                )))
-            }
-        }
+        let ks = key_repository::select_key(db, key_id).await?;
+        KEY_CACHE.insert(cache_key, ks.clone()).await;
+        Ok(ks)
     }
 }
 
