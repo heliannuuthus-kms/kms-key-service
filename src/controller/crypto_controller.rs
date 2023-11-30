@@ -1,10 +1,20 @@
-use axum::response::IntoResponse;
+use axum::{
+    extract::{Path, State},
+    response::IntoResponse,
+};
+use openssl::hash::MessageDigest;
+use pojo::form::crypto::EncryptBody;
 
-use crate::common::errors::Result;
+use crate::{
+    common::{axum::Json, errors::Result},
+    crypto, pojo,
+    service::{key_meta_service, key_service},
+    States,
+};
 
 #[utoipa::path(
   post,
-  path="/encrypt/{:version}",
+  path="/encrypt",
   operation_id = "加密",
   context_path= "/keys/{key_id}",
   params(
@@ -15,7 +25,11 @@ use crate::common::errors::Result;
       (status = 400, description = "illegal params")
   ),
 )]
-pub async fn encrypt() -> Result<impl IntoResponse> {
+pub async fn encrypt(
+    State(States { db, .. }): State<States>,
+    Json(body): Json<EncryptBody>,
+) -> Result<impl IntoResponse> {
+  tracing::info!("encrypt data: body {:?}", body);
     Ok("")
 }
 
