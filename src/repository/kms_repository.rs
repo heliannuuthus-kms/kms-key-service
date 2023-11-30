@@ -1,7 +1,7 @@
 use anyhow::Context;
 use sea_orm::{
     sea_query::OnConflict, ColumnTrait, DbConn, EntityTrait, IntoActiveModel,
-    QueryFilter,
+    QueryFilter, QuerySelect,
 };
 
 use crate::{common::errors::Result, entity::prelude::*};
