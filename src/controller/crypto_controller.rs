@@ -3,7 +3,7 @@ use axum::{
     response::IntoResponse,
 };
 use openssl::hash::MessageDigest;
-use pojo::form::crypto::EncryptBody;
+use pojo::form::crypto::KeyEncryptBody;
 
 use crate::{
     common::{axum::Json, errors::Result},
@@ -27,7 +27,7 @@ use crate::{
 )]
 pub async fn encrypt(
     State(States { db, .. }): State<States>,
-    Json(body): Json<EncryptBody>,
+    Json(body): Json<KeyEncryptBody>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("encrypt data: body {:?}", body);
     Ok("")
