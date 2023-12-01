@@ -9,26 +9,52 @@ use crate::common::errors::{Result, ServiceError};
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq, Debug, Copy)]
 pub enum KeyAlgorithm {
-    #[serde(rename = "AES_128_CBC")]
-    Aes128Cbc,
-    #[serde(rename = "AES_256_CBC")]
-    Aes256Cbc,
-    #[serde(rename = "AES_128_GCM")]
-    Aes128Gcm,
-    #[serde(rename = "AES_128_GCM")]
-    Aes256Gcm,
-    #[serde(rename = "RSA_2048")]
-    Rsa2048,
-    #[serde(rename = "RSA_3072")]
-    Rsa3072,
-    #[serde(rename = "SM2")]
-    SM2,
-    #[serde(rename = "SM4")]
-    SM4,
-    #[serde(rename = "EC_P256K")]
-    EcP256k,
-    #[serde(rename = "EC_P256")]
-    EcP256,
+    // encrypt and decrypt
+    #[serde(rename = "AES_CBC")]
+    AesCBC,
+    #[serde(rename = "AES_GCM")]
+    AesGCM,
+    #[serde(rename = "RSAES_OAEP")]
+    RsaOAEP,
+    #[serde(rename = "SM2PKE")]
+    SM2PKE,
+    #[serde(rename = "SM4_CTR")]
+    Sm4CTR,
+    #[serde(rename = "SM4_CBC")]
+    Sm4CBC,
+    #[serde(rename = "ECIES_DH_SHA_1_XOR_HMAC")]
+    EciesSha1,
+
+    // sign and verify
+    #[serde(rename = "RSA_PSS")]
+    RsaPSS,
+    #[serde(rename = "RSA_PKCS1")]
+    RsaPKCS1,
+    #[serde(rename = "ECDSA")]
+    Ecdsa,
+    #[serde(rename = "SM2DSA")]
+    SM2DSA,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MessageDigest {
+    Sha1,
+    Sha224,
+    Sha256,
+    Sha384,
+    Sha512,
+    Sha3_224,
+    Sha3_256,
+    Sha3_384,
+    Sha3_512,
+}
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum Padding {
+    Pkcs7Padding,
+    NoPadding,
 }
 
 #[derive(

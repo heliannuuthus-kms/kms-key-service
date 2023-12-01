@@ -2,7 +2,7 @@ use anyhow::Context;
 use openssl::{ec, hash, nid::Nid, pkey, rsa};
 
 use super::{
-    aes::{AesCbcAlgorithmFactory, AesGcmAlgorithmFactory},
+    symm::{AesCBCAlgorithmFactory, AesGCMAlgorithmFactory},
     ec::EcAlgorithmFactory,
     rsa::RsaAlgorithmFactory,
     types::{
@@ -154,34 +154,25 @@ pub fn select_wrapping_factory(
 }
 
 pub fn select_factory(
-    spec: KeySpec,
     alg: KeyAlgorithm,
 ) -> Result<Box<dyn KeyAlgorithmFactory>> {
-    match (spec, alg) {
-        (KeySpec::Aes128, KeyAlgorithm::Aes128Cbc)
-        | (KeySpec::Aes256, KeyAlgorithm::Aes256Cbc) => {
-            Ok(Box::new(AesCbcAlgorithmFactory {}))
-        }
-        (KeySpec::Aes128, KeyAlgorithm::Aes128Gcm)
-        | (KeySpec::Aes256, KeyAlgorithm::Aes256Gcm) => {
-            Ok(Box::new(AesGcmAlgorithmFactory {}))
-        }
-        (KeySpec::Rsa2048, KeyAlgorithm::Rsa2048)
-        | (KeySpec::Rsa3072, KeyAlgorithm::Rsa3072) => {
-            Ok(Box::new(RsaAlgorithmFactory {}))
-        }
-
-        (KeySpec::EcP256, KeyAlgorithm::EcP256)
-        | (KeySpec::EcP256K, KeyAlgorithm::EcP256k) => {
+    match alg {
+        KeyAlgorithm::AesCbc => Ok(Box::new(AesCBCAlgorithmFactory {})),
+        KeyAlgorithm::AesGcm => Ok(Box::new(AesGCMAlgorithmFactory {})),
+        KeyAlgorithm::RsaOaep
+        | KeyAlgorithm::RsaPss
+        | KeyAlgorithm::RsaPkcs1 => Ok(Box::new(RsaAlgorithmFactory {})),
+        KeyAlgorithm::Ecdsa | KeyAlgorithm::EciesSha1 => {
             Ok(Box::new(EcAlgorithmFactory {}))
         }
+        KeyAlgorithm::SM2DSA | KeyAlgorithm::SM2PKE => todo!(),
+        KeyAlgorithm::Sm4Gcm => todo!(),
         _ => Err(ServiceError::Unsupported(format!(
-            "unsupported combo, spec:{:?}, alg: {:?}",
-            spec, alg
+            "unsupported alg {:?}",
+            alg
         ))),
     }
 }
-
 fn aes_generate(size: usize) -> Result<(Vec<u8>, Vec<u8>)> {
     Ok((utils::generate_key(size)?, vec![]))
 }
