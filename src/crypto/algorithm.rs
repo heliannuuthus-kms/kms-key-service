@@ -1,10 +1,10 @@
 use anyhow::Context;
-use openssl::{ec, hash, nid::Nid, pkey, rsa};
+use openssl::{ec, hash, nid::Nid, pkey, rsa, symm};
 
 use super::{
-    symm::{AesCBCAlgorithmFactory, AesGCMAlgorithmFactory},
     ec::EcAlgorithmFactory,
     rsa::RsaAlgorithmFactory,
+    symm::{AEADAlgorithmFactory, CipherAlgorithmFactory},
     types::{
         KeyAlgorithm, KeySpec, KeyType, KeyUsage, WrappingKeyAlgorithm,
         WrappingKeySpec,
@@ -153,20 +153,59 @@ pub fn select_wrapping_factory(
     }
 }
 
+pub fn select_cipher(
+    size: usize,
+    key_alg: KeyAlgorithm,
+) -> Result<symm::Cipher> {
+    Ok(match key_alg {
+        KeyAlgorithm::AesCBC => match size * 8 {
+            128 => symm::Cipher::aes_128_cbc(),
+            256 => symm::Cipher::aes_256_cbc(),
+            _ => {
+                return Err(ServiceError::Unsupported(format!(
+                    "unsupported aes key length: {}",
+                    size
+                )))
+            }
+        },
+        KeyAlgorithm::AesGCM => match size * 8 {
+            128 => symm::Cipher::aes_128_gcm(),
+            256 => symm::Cipher::aes_256_gcm(),
+            _ => {
+                return Err(ServiceError::Unsupported(format!(
+                    "unsupported aes key length: {}",
+                    size
+                )))
+            }
+        },
+        KeyAlgorithm::Sm4CTR => symm::Cipher::sm4_ctr(),
+        KeyAlgorithm::Sm4CBC => symm::Cipher::sm4_cbc(),
+        _ => {
+            return Err(ServiceError::Unsupported(format!(
+                "unsupported aes key length: {}",
+                size
+            )))
+        }
+    })
+}
+
 pub fn select_factory(
     alg: KeyAlgorithm,
 ) -> Result<Box<dyn KeyAlgorithmFactory>> {
     match alg {
-        KeyAlgorithm::AesCbc => Ok(Box::new(AesCBCAlgorithmFactory {})),
-        KeyAlgorithm::AesGcm => Ok(Box::new(AesGCMAlgorithmFactory {})),
-        KeyAlgorithm::RsaOaep
-        | KeyAlgorithm::RsaPss
-        | KeyAlgorithm::RsaPkcs1 => Ok(Box::new(RsaAlgorithmFactory {})),
+        KeyAlgorithm::AesCBC
+        | KeyAlgorithm::Sm4CBC
+        | KeyAlgorithm::SM2DSA
+        | KeyAlgorithm::SM2PKE => {
+            Ok(Box::new(CipherAlgorithmFactory::new(alg)))
+        }
+        KeyAlgorithm::AesGCM => Ok(Box::new(AEADAlgorithmFactory::new(alg))),
+        KeyAlgorithm::RsaOAEP
+        | KeyAlgorithm::RsaPSS
+        | KeyAlgorithm::RsaPKCS1 => Ok(Box::new(RsaAlgorithmFactory {})),
         KeyAlgorithm::Ecdsa | KeyAlgorithm::EciesSha1 => {
             Ok(Box::new(EcAlgorithmFactory {}))
         }
-        KeyAlgorithm::SM2DSA | KeyAlgorithm::SM2PKE => todo!(),
-        KeyAlgorithm::Sm4Gcm => todo!(),
         _ => Err(ServiceError::Unsupported(format!(
             "unsupported alg {:?}",
             alg
