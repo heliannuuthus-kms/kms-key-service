@@ -4,7 +4,7 @@ use openssl::{
     pkey, sign,
 };
 
-use super::algorithm::{EncryptoAdaptor, KeyAlgorithmFactory};
+use super::algorithm::{CryptoAdaptor, KeyAlgorithmFactory};
 use crate::common::errors::Result;
 
 pub struct RsaAlgorithmFactory {}
@@ -14,7 +14,7 @@ impl KeyAlgorithmFactory for RsaAlgorithmFactory {
         &self,
         pri_key: &[u8],
         plaintext: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let pkey = pkey::PKey::private_key_from_pkcs8(pri_key)
             .context("import rsa private key pkcs8 failed")?;
@@ -38,7 +38,7 @@ impl KeyAlgorithmFactory for RsaAlgorithmFactory {
         pub_key: &[u8],
         plaintext: &[u8],
         signature: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<bool> {
         let pkey = pkey::PKey::public_key_from_der(pub_key)
             .context("import public key failed")?;
@@ -65,7 +65,7 @@ impl KeyAlgorithmFactory for RsaAlgorithmFactory {
         &self,
         pub_key: &[u8],
         plaintext: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let pkey_encrypter = pkey::PKey::public_key_from_der(pub_key)
             .context("rsa public key transform to pkey faield")?;
@@ -104,7 +104,7 @@ impl KeyAlgorithmFactory for RsaAlgorithmFactory {
         &self,
         private_key: &[u8],
         cipher: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let pkey_decrypter = pkey::PKey::private_key_from_pkcs8(private_key)
             .context("rsa private key pkcs8 to pkey faield")?;

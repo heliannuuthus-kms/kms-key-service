@@ -1,10 +1,12 @@
 use std::{self, fmt::Display, option::Option};
 
 use openssl::{cipher::Cipher, nid::Nid};
+use openssl_sys::NID_sm4_cbc;
 use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+use super::algorithm::CryptoAdaptor;
 use crate::common::errors::{Result, ServiceError};
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq, Debug, Copy)]
@@ -34,6 +36,24 @@ pub enum KeyAlgorithm {
     Ecdsa,
     #[serde(rename = "SM2DSA")]
     SM2DSA,
+}
+
+impl Into<CryptoAdaptor> for KeyAlgorithm {
+    fn into(self) -> CryptoAdaptor {
+        match self {
+            KeyAlgorithm::AesCBC => todo!(),
+            KeyAlgorithm::AesGCM => todo!(),
+            KeyAlgorithm::RsaOAEP => todo!(),
+            KeyAlgorithm::SM2PKE => todo!(),
+            KeyAlgorithm::Sm4CTR => todo!(),
+            KeyAlgorithm::Sm4CBC => todo!(),
+            KeyAlgorithm::EciesSha1 => todo!(),
+            KeyAlgorithm::RsaPSS => todo!(),
+            KeyAlgorithm::RsaPKCS1 => todo!(),
+            KeyAlgorithm::Ecdsa => todo!(),
+            KeyAlgorithm::SM2DSA => todo!(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
@@ -143,12 +163,12 @@ pub enum KeyOrigin {
     ToSchema,
     Debug,
 )]
-#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "sepc")]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "spec")]
 pub enum KeySpec {
-    #[default]
     #[sea_orm(string_value = "AES_128")]
     #[serde(rename = "AES_128")]
     Aes128,
+    #[default]
     #[sea_orm(string_value = "AES_256")]
     #[serde(rename = "AES_256")]
     Aes256,
@@ -164,6 +184,9 @@ pub enum KeySpec {
     #[sea_orm(string_value = "EC_P256k")]
     #[serde(rename = "EC_P256K")]
     EcP256K,
+    #[sea_orm(string_value = "SM4")]
+    #[serde(rename = "SM4")]
+    SM4,
 }
 
 impl From<KeySpec> for (Nid, usize) {
@@ -179,6 +202,9 @@ impl From<KeySpec> for (Nid, usize) {
             KeySpec::Rsa3072 => (Nid::RSA, 384),
             KeySpec::EcP256 => (Nid::X9_62_PRIME256V1, 256),
             KeySpec::EcP256K => (Nid::SECP256K1, 256),
+            KeySpec::SM4 => {
+                (Nid::from_raw(NID_sm4_cbc), Cipher::sm4_cbc().key_length())
+            }
         }
     }
 }

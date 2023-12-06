@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS t_key_meta (
     "RSA_2048",
     "RSA_3072",
     "EC_P256",
-    "EC_P256k"
+    "EC_P256k",
+    "SM4"
   ) NOT NULL COMMENT "密钥规格",
   origin ENUM("KMS", "EXTERNAL") NOT NULL COMMENT "密钥来源，0: kms 创建，1: 密钥材料导入",
   description TEXT COMMENT "密钥描述",

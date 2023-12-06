@@ -23,34 +23,41 @@ pub trait KeyAlgorithmFactory {
         &self,
         pri_key: &[u8],
         plaintext: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<Vec<u8>>;
     fn verify(
         &self,
         pub_key: &[u8],
         plaintext: &[u8],
         signature: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<bool>;
     fn encrypt(
         &self,
         pub_key: &[u8],
         plaintext: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<Vec<u8>>;
     fn decrypt(
         &self,
         private_key: &[u8],
         cipher: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<Vec<u8>>;
 }
 
-#[derive(Default)]
-pub struct EncryptoAdaptor {
+#[derive(Default, Clone)]
+pub struct CryptoAdaptor {
     pub padding: Option<openssl::rsa::Padding>,
-    pub kits: Option<Vec<Vec<u8>>>,
+    pub kits: Option<EncryptKits>,
     pub md: Option<openssl::hash::MessageDigest>,
+}
+#[derive(Default, Clone)]
+
+pub struct EncryptKits {
+    pub iv: Vec<u8>,
+    pub aad: Vec<u8>,
+    pub tag: Vec<u8>,
 }
 
 pub struct KeyAlgorithmMeta {
@@ -62,7 +69,7 @@ pub struct KeyAlgorithmMeta {
 pub fn generate_key(spec: KeySpec) -> Result<(Vec<u8>, Vec<u8>)> {
     let (nid, size) = spec.into();
     match spec {
-        KeySpec::Aes128 | KeySpec::Aes256 => aes_generate(size),
+        KeySpec::Aes128 | KeySpec::Aes256 | KeySpec::SM4 => symm_generate(size),
         KeySpec::Rsa2048 | KeySpec::Rsa3072 => rsa_generate(size),
         KeySpec::EcP256 | KeySpec::EcP256K => ec_generate(nid),
     }
@@ -100,46 +107,32 @@ pub fn select_wrapping_meta(spec: WrappingKeySpec) -> KeyAlgorithmMeta {
 }
 
 pub fn select_meta(spec: KeySpec) -> KeyAlgorithmMeta {
+    let (_nid, size) = spec.into();
     match spec {
-        KeySpec::Aes128 => KeyAlgorithmMeta {
+        KeySpec::Aes128 | KeySpec::SM4 => KeyAlgorithmMeta {
             key_type: KeyType::Symmetric,
-            key_size: 16,
+            key_size: size,
             key_usage: vec![KeyUsage::EncryptAndDecrypt],
         },
 
         KeySpec::Aes256 => KeyAlgorithmMeta {
             key_type: KeyType::Symmetric,
-            key_size: 32,
+            key_size: size,
             key_usage: vec![KeyUsage::EncryptAndDecrypt],
         },
-        KeySpec::Rsa2048 => KeyAlgorithmMeta {
+        KeySpec::Rsa2048 | KeySpec::Rsa3072 => KeyAlgorithmMeta {
             key_type: KeyType::Asymmetric,
-            key_size: 256,
+            key_size: size,
             key_usage: vec![
                 KeyUsage::EncryptAndDecrypt,
                 KeyUsage::SignAndVerify,
             ],
         },
-        KeySpec::Rsa3072 => KeyAlgorithmMeta {
+
+        KeySpec::EcP256 | KeySpec::EcP256K => KeyAlgorithmMeta {
             key_type: KeyType::Asymmetric,
-            key_size: 384,
-            key_usage: vec![
-                KeyUsage::EncryptAndDecrypt,
-                KeyUsage::SignAndVerify,
-            ],
-        },
-        KeySpec::EcP256 => KeyAlgorithmMeta {
-            key_type: KeyType::Asymmetric,
-            key_size: 256,
+            key_size: size,
             key_usage: vec![KeyUsage::SignAndVerify],
-        },
-        KeySpec::EcP256K => KeyAlgorithmMeta {
-            key_type: KeyType::Asymmetric,
-            key_size: 256,
-            key_usage: vec![
-                KeyUsage::SignAndVerify,
-                KeyUsage::EncryptAndDecrypt,
-            ],
         },
     }
 }
@@ -212,7 +205,7 @@ pub fn select_factory(
         ))),
     }
 }
-fn aes_generate(size: usize) -> Result<(Vec<u8>, Vec<u8>)> {
+fn symm_generate(size: usize) -> Result<(Vec<u8>, Vec<u8>)> {
     Ok((utils::generate_key(size)?, vec![]))
 }
 
@@ -246,15 +239,12 @@ fn rsa_generate(size: usize) -> Result<(Vec<u8>, Vec<u8>)> {
 }
 pub fn derive_key(spec: KeySpec, key: &[u8]) -> Result<Vec<u8>> {
     match spec {
-        KeySpec::Aes128 | KeySpec::Aes256 => aes_derive(key),
+        KeySpec::Aes128 | KeySpec::Aes256 | KeySpec::SM4 => Ok(vec![]),
         KeySpec::Rsa2048 | KeySpec::Rsa3072 => rsa_derive(key),
         KeySpec::EcP256 | KeySpec::EcP256K => ec_derive(key),
     }
 }
 
-fn aes_derive(key: &[u8]) -> Result<Vec<u8>> {
-    Ok(key.to_vec())
-}
 fn ec_derive(private_key: &[u8]) -> Result<Vec<u8>> {
     let pkey = pkey::PKey::private_key_from_pkcs8(private_key)
         .context("import ec private key failed")?;
@@ -271,24 +261,24 @@ fn rsa_derive(private_key: &[u8]) -> Result<Vec<u8>> {
         .context("export public key failed")?)
 }
 
-impl From<WrappingKeyAlgorithm> for EncryptoAdaptor {
+impl From<WrappingKeyAlgorithm> for CryptoAdaptor {
     fn from(value: WrappingKeyAlgorithm) -> Self {
         match value {
-            WrappingKeyAlgorithm::RsaesPkcs1V1_5 => EncryptoAdaptor {
+            WrappingKeyAlgorithm::RsaesPkcs1V1_5 => CryptoAdaptor {
                 padding: Some(rsa::Padding::PKCS1),
                 ..Default::default()
             },
-            WrappingKeyAlgorithm::RsaesOaepSha1 => EncryptoAdaptor {
+            WrappingKeyAlgorithm::RsaesOaepSha1 => CryptoAdaptor {
                 padding: Some(rsa::Padding::PKCS1_OAEP),
                 md: Some(hash::MessageDigest::sha1()),
                 ..Default::default()
             },
-            WrappingKeyAlgorithm::RsaesOaepSha256 => EncryptoAdaptor {
+            WrappingKeyAlgorithm::RsaesOaepSha256 => CryptoAdaptor {
                 padding: Some(rsa::Padding::PKCS1_OAEP),
                 md: Some(hash::MessageDigest::sha256()),
                 ..Default::default()
             },
-            WrappingKeyAlgorithm::SM2PKE => EncryptoAdaptor {
+            WrappingKeyAlgorithm::SM2PKE => CryptoAdaptor {
                 md: Some(hash::MessageDigest::sha256()),
                 ..Default::default()
             },

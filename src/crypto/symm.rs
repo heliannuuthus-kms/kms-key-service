@@ -2,7 +2,7 @@ use anyhow::Context;
 use openssl::symm::{self};
 
 use super::{
-    algorithm::{select_cipher, EncryptoAdaptor, KeyAlgorithmFactory},
+    algorithm::{select_cipher, CryptoAdaptor, KeyAlgorithmFactory},
     types::KeyAlgorithm,
 };
 use crate::common::{
@@ -30,7 +30,7 @@ impl AEADAlgorithmFactory {
     }
 }
 
-pub fn aes_iv_generate(size: usize) -> Result<Vec<u8>> {
+pub fn generate_iv(size: usize) -> Result<Vec<u8>> {
     utils::generate_key(size)
 }
 
@@ -39,17 +39,17 @@ impl KeyAlgorithmFactory for AEADAlgorithmFactory {
         &self,
         key: &[u8],
         plaintext: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let ccipher = select_cipher(key.len(), self.alg)?;
-        let kits = e.kits.unwrap();
+        let mut kits = e.kits.unwrap();
         Ok(symm::encrypt_aead(
             ccipher,
             key,
-            Some(&kits[0]),
-            &kits[1],
+            Some(&kits.iv),
+            &kits.aad,
             plaintext,
-            &mut kits[2].clone(),
+            &mut kits.tag,
         )
         .context(format!("{:?} aead encrypt failed", self.alg))?)
     }
@@ -58,7 +58,7 @@ impl KeyAlgorithmFactory for AEADAlgorithmFactory {
         &self,
         key: &[u8],
         cipher: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let ccipher = select_cipher(key.len(), self.alg)?;
         let kits = e.kits.unwrap();
@@ -66,10 +66,10 @@ impl KeyAlgorithmFactory for AEADAlgorithmFactory {
         Ok(symm::decrypt_aead(
             ccipher,
             key,
-            Some(&kits[0]),
-            &kits[1],
+            Some(&kits.iv),
+            &kits.aad,
             cipher,
-            &kits[2].clone(),
+            &kits.tag,
         )
         .context(format!("{:?} aead decrypt failed", self.alg))?)
     }
@@ -78,7 +78,7 @@ impl KeyAlgorithmFactory for AEADAlgorithmFactory {
         &self,
         _pri_key: &[u8],
         _plaintext: &[u8],
-        _e: EncryptoAdaptor,
+        _e: CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         Err(ServiceError::Unsupported(
             "aead is unsupported sign action".to_owned(),
@@ -90,7 +90,7 @@ impl KeyAlgorithmFactory for AEADAlgorithmFactory {
         _pub_key: &[u8],
         _plaintext: &[u8],
         _signature: &[u8],
-        _e: EncryptoAdaptor,
+        _e: CryptoAdaptor,
     ) -> Result<bool> {
         Err(ServiceError::Unsupported(
             "aead is unsupported verify action".to_owned(),
@@ -103,7 +103,7 @@ impl KeyAlgorithmFactory for CipherAlgorithmFactory {
         &self,
         _pri_key: &[u8],
         _plaintext: &[u8],
-        _e: EncryptoAdaptor,
+        _e: CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         Err(ServiceError::Unsupported(
             "cipher is unsupported sign action".to_owned(),
@@ -115,7 +115,7 @@ impl KeyAlgorithmFactory for CipherAlgorithmFactory {
         _pub_key: &[u8],
         _plaintext: &[u8],
         _signature: &[u8],
-        _e: EncryptoAdaptor,
+        _e: CryptoAdaptor,
     ) -> Result<bool> {
         Err(ServiceError::Unsupported(
             "cipher is unsupported verify action".to_owned(),
@@ -126,11 +126,11 @@ impl KeyAlgorithmFactory for CipherAlgorithmFactory {
         &self,
         key: &[u8],
         plaintext: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let ccipher = select_cipher(key.len(), self.alg)?;
         Ok(
-            symm::encrypt(ccipher, key, Some(&e.kits.unwrap()[0]), plaintext)
+            symm::encrypt(ccipher, key, Some(&e.kits.unwrap().iv), plaintext)
                 .context(format!("{:?} encrypt failed", self.alg))?,
         )
     }
@@ -139,12 +139,81 @@ impl KeyAlgorithmFactory for CipherAlgorithmFactory {
         &self,
         key: &[u8],
         cipher: &[u8],
-        e: EncryptoAdaptor,
+        e: CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let ccipher = select_cipher(key.len(), self.alg)?;
         Ok(
-            symm::decrypt(ccipher, key, Some(&e.kits.unwrap()[0]), cipher)
+            symm::decrypt(ccipher, key, Some(&e.kits.unwrap().iv), cipher)
                 .context(format!("{:?} encrypt failed", self.alg))?,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::{generate_iv, CipherAlgorithmFactory};
+    use crate::{
+        common::utils,
+        crypto::{
+            algorithm::{
+                generate_key, CryptoAdaptor, EncryptKits, KeyAlgorithmFactory,
+            },
+            symm::AEADAlgorithmFactory,
+            types::{KeyAlgorithm, KeySpec},
+        },
+    };
+
+    #[test]
+    fn test_aes_cipher() {
+        for spec in [KeySpec::Aes128, KeySpec::Aes256, KeySpec::SM4] {
+            let (_nid, size) = spec.into();
+            let factory = if KeySpec::SM4.eq(&spec) {
+                CipherAlgorithmFactory::new(KeyAlgorithm::Sm4CBC)
+            } else {
+                CipherAlgorithmFactory::new(KeyAlgorithm::AesCBC)
+            };
+            let (key, _nil) = generate_key(spec).unwrap();
+            let iv = generate_iv(size).unwrap();
+
+            let crypto = CryptoAdaptor {
+                kits: Some(EncryptKits {
+                    iv,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+            let cipher =
+                factory.encrypt(&key, b"plaintext", crypto.clone()).unwrap();
+            println!("cipher: {}", utils::encode64(&cipher));
+            assert_eq!(
+                factory.decrypt(&key, &cipher, crypto).unwrap(),
+                b"plaintext",
+            );
+        }
+    }
+
+    #[test]
+    fn test_aead() {
+        for spec in [KeySpec::Aes128, KeySpec::Aes256] {
+            let (_nid, size) = spec.into();
+            let factory = AEADAlgorithmFactory::new(KeyAlgorithm::AesGCM);
+            let (key, _nil) = generate_key(spec).unwrap();
+            let iv = generate_iv(size).unwrap();
+
+            let crypto = CryptoAdaptor {
+                kits: Some(EncryptKits {
+                    iv,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+            let cipher =
+                factory.encrypt(&key, b"plaintext", crypto.clone()).unwrap();
+            assert_eq!(
+                factory.decrypt(&key, &cipher, crypto).unwrap(),
+                b"plaintext",
+            );
+        }
     }
 }
