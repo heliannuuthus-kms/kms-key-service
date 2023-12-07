@@ -6,7 +6,6 @@ use sea_orm::{DeriveActiveEnum, EnumIter};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-use super::algorithm::CryptoAdaptor;
 use crate::common::errors::{Result, ServiceError};
 
 #[derive(Deserialize, Serialize, Clone, PartialEq, Eq, Debug, Copy)]
@@ -36,24 +35,6 @@ pub enum KeyAlgorithm {
     Ecdsa,
     #[serde(rename = "SM2DSA")]
     SM2DSA,
-}
-
-impl Into<CryptoAdaptor> for KeyAlgorithm {
-    fn into(self) -> CryptoAdaptor {
-        match self {
-            KeyAlgorithm::AesCBC => todo!(),
-            KeyAlgorithm::AesGCM => todo!(),
-            KeyAlgorithm::RsaOAEP => todo!(),
-            KeyAlgorithm::SM2PKE => todo!(),
-            KeyAlgorithm::Sm4CTR => todo!(),
-            KeyAlgorithm::Sm4CBC => todo!(),
-            KeyAlgorithm::EciesSha1 => todo!(),
-            KeyAlgorithm::RsaPSS => todo!(),
-            KeyAlgorithm::RsaPKCS1 => todo!(),
-            KeyAlgorithm::Ecdsa => todo!(),
-            KeyAlgorithm::SM2DSA => todo!(),
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]

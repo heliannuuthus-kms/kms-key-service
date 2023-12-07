@@ -297,7 +297,7 @@ pub async fn import_key_material(
     let private_key = f.decrypt(
         &utils::decode64(&material_data.private_key)?,
         &utils::decode64(&data.encrypted_key_material)?,
-        material_data.wrapping_algorithm.into(),
+        &material_data.wrapping_algorithm.into(),
     )?;
 
     let key_model: KeyModel = get_main_key(db, key_id).await?;
