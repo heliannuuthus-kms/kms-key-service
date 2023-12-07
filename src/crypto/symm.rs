@@ -39,10 +39,10 @@ impl KeyAlgorithmFactory for AEADAlgorithmFactory {
         &self,
         key: &[u8],
         plaintext: &[u8],
-        e: CryptoAdaptor,
+        e: &mut CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let ccipher = select_cipher(key.len(), self.alg)?;
-        let mut kits = e.kits.unwrap();
+        let kits = e.kits.as_mut().unwrap();
         Ok(symm::encrypt_aead(
             ccipher,
             key,
@@ -58,10 +58,10 @@ impl KeyAlgorithmFactory for AEADAlgorithmFactory {
         &self,
         key: &[u8],
         cipher: &[u8],
-        e: CryptoAdaptor,
+        e: &CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let ccipher = select_cipher(key.len(), self.alg)?;
-        let kits = e.kits.unwrap();
+        let kits = e.kits.as_ref().unwrap();
 
         Ok(symm::decrypt_aead(
             ccipher,
@@ -78,7 +78,7 @@ impl KeyAlgorithmFactory for AEADAlgorithmFactory {
         &self,
         _pri_key: &[u8],
         _plaintext: &[u8],
-        _e: CryptoAdaptor,
+        _e: &CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         Err(ServiceError::Unsupported(
             "aead is unsupported sign action".to_owned(),
@@ -90,7 +90,7 @@ impl KeyAlgorithmFactory for AEADAlgorithmFactory {
         _pub_key: &[u8],
         _plaintext: &[u8],
         _signature: &[u8],
-        _e: CryptoAdaptor,
+        _e: &CryptoAdaptor,
     ) -> Result<bool> {
         Err(ServiceError::Unsupported(
             "aead is unsupported verify action".to_owned(),
@@ -103,7 +103,7 @@ impl KeyAlgorithmFactory for CipherAlgorithmFactory {
         &self,
         _pri_key: &[u8],
         _plaintext: &[u8],
-        _e: CryptoAdaptor,
+        _e: &CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         Err(ServiceError::Unsupported(
             "cipher is unsupported sign action".to_owned(),
@@ -115,7 +115,7 @@ impl KeyAlgorithmFactory for CipherAlgorithmFactory {
         _pub_key: &[u8],
         _plaintext: &[u8],
         _signature: &[u8],
-        _e: CryptoAdaptor,
+        _e: &CryptoAdaptor,
     ) -> Result<bool> {
         Err(ServiceError::Unsupported(
             "cipher is unsupported verify action".to_owned(),
@@ -126,26 +126,32 @@ impl KeyAlgorithmFactory for CipherAlgorithmFactory {
         &self,
         key: &[u8],
         plaintext: &[u8],
-        e: CryptoAdaptor,
+        e: &mut CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let ccipher = select_cipher(key.len(), self.alg)?;
-        Ok(
-            symm::encrypt(ccipher, key, Some(&e.kits.unwrap().iv), plaintext)
-                .context(format!("{:?} encrypt failed", self.alg))?,
+        Ok(symm::encrypt(
+            ccipher,
+            key,
+            Some(&e.kits.as_ref().unwrap().iv),
+            plaintext,
         )
+        .context(format!("{:?} encrypt failed", self.alg))?)
     }
 
     fn decrypt(
         &self,
         key: &[u8],
         cipher: &[u8],
-        e: CryptoAdaptor,
+        e: &CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let ccipher = select_cipher(key.len(), self.alg)?;
-        Ok(
-            symm::decrypt(ccipher, key, Some(&e.kits.unwrap().iv), cipher)
-                .context(format!("{:?} encrypt failed", self.alg))?,
+        Ok(symm::decrypt(
+            ccipher,
+            key,
+            Some(&e.kits.as_ref().unwrap().iv),
+            cipher,
         )
+        .context(format!("{:?} encrypt failed", self.alg))?)
     }
 }
 
@@ -176,7 +182,7 @@ mod tests {
             let (key, _nil) = generate_key(spec).unwrap();
             let iv = generate_iv(size).unwrap();
 
-            let crypto = CryptoAdaptor {
+            let mut crypto = CryptoAdaptor {
                 kits: Some(EncryptKits {
                     iv,
                     ..Default::default()
@@ -184,10 +190,10 @@ mod tests {
                 ..Default::default()
             };
             let cipher =
-                factory.encrypt(&key, b"plaintext", crypto.clone()).unwrap();
+                factory.encrypt(&key, b"plaintext", &mut crypto).unwrap();
             println!("cipher: {}", utils::encode64(&cipher));
             assert_eq!(
-                factory.decrypt(&key, &cipher, crypto).unwrap(),
+                factory.decrypt(&key, &cipher, &crypto).unwrap(),
                 b"plaintext",
             );
         }
@@ -196,22 +202,26 @@ mod tests {
     #[test]
     fn test_aead() {
         for spec in [KeySpec::Aes128, KeySpec::Aes256] {
-            let (_nid, size) = spec.into();
             let factory = AEADAlgorithmFactory::new(KeyAlgorithm::AesGCM);
             let (key, _nil) = generate_key(spec).unwrap();
-            let iv = generate_iv(size).unwrap();
+            let iv = generate_iv(12).unwrap();
 
-            let crypto = CryptoAdaptor {
+            let mut crypto = CryptoAdaptor {
                 kits: Some(EncryptKits {
                     iv,
-                    ..Default::default()
+                    aad: String::from("aad").into_bytes(),
+                    tag: vec![0; 16],
                 }),
                 ..Default::default()
             };
             let cipher =
-                factory.encrypt(&key, b"plaintext", crypto.clone()).unwrap();
+                factory.encrypt(&key, b"plaintext", &mut crypto).unwrap();
+            println!(
+                "{}",
+                hex::encode(crypto.kits.as_ref().unwrap().tag.clone())
+            );
             assert_eq!(
-                factory.decrypt(&key, &cipher, crypto).unwrap(),
+                factory.decrypt(&key, &cipher, &crypto).unwrap(),
                 b"plaintext",
             );
         }

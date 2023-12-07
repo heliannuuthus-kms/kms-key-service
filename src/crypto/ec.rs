@@ -16,7 +16,7 @@ impl KeyAlgorithmFactory for EcAlgorithmFactory {
         &self,
         pri_key: &[u8],
         plaintext: &[u8],
-        e: CryptoAdaptor,
+        e: &CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let pkey = pkey::PKey::private_key_from_pkcs8(pri_key)
             .context("import ec private key pkcs8 to pkey failed")?;
@@ -34,7 +34,7 @@ impl KeyAlgorithmFactory for EcAlgorithmFactory {
         pub_key: &[u8],
         plaintext: &[u8],
         signature: &[u8],
-        e: CryptoAdaptor,
+        e: &CryptoAdaptor,
     ) -> Result<bool> {
         let pkey =
             pkey::PKey::public_key_from_der(pub_key).context("import")?;
@@ -52,7 +52,7 @@ impl KeyAlgorithmFactory for EcAlgorithmFactory {
         &self,
         pub_key: &[u8],
         plaintext: &[u8],
-        _e: CryptoAdaptor,
+        _e: &mut CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let pkey_encrypter = pkey::PKey::public_key_from_der(pub_key)
             .context("import ec public key transform to pkey faield")?;
@@ -75,7 +75,7 @@ impl KeyAlgorithmFactory for EcAlgorithmFactory {
         &self,
         private_key: &[u8],
         cipher: &[u8],
-        _e: CryptoAdaptor,
+        _e: &CryptoAdaptor,
     ) -> Result<Vec<u8>> {
         let pkey_decrypter = pkey::PKey::private_key_from_pkcs8(private_key)
             .context("import ec key pkcs8 transform to pkey faield")?;
@@ -121,7 +121,11 @@ mod tests {
         );
 
         let cipher = ec_f
-            .encrypt(&public, b"plaintext", WrappingKeyAlgorithm::SM2PKE.into())
+            .encrypt(
+                &public,
+                b"plaintext",
+                &mut WrappingKeyAlgorithm::SM2PKE.into(),
+            )
             .unwrap();
 
         println!("cipher: {}", utils::encode64(&cipher));
@@ -129,7 +133,7 @@ mod tests {
             ec_f.decrypt(
                 &private,
                 &cipher,
-                WrappingKeyAlgorithm::SM2PKE.into()
+                &WrappingKeyAlgorithm::SM2PKE.into()
             )
             .unwrap(),
             b"plaintext"

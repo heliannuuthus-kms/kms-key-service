@@ -23,26 +23,26 @@ pub trait KeyAlgorithmFactory {
         &self,
         pri_key: &[u8],
         plaintext: &[u8],
-        e: CryptoAdaptor,
+        e: &CryptoAdaptor,
     ) -> Result<Vec<u8>>;
     fn verify(
         &self,
         pub_key: &[u8],
         plaintext: &[u8],
         signature: &[u8],
-        e: CryptoAdaptor,
+        e: &CryptoAdaptor,
     ) -> Result<bool>;
     fn encrypt(
         &self,
         pub_key: &[u8],
         plaintext: &[u8],
-        e: CryptoAdaptor,
+        e: &mut CryptoAdaptor,
     ) -> Result<Vec<u8>>;
     fn decrypt(
         &self,
         private_key: &[u8],
         cipher: &[u8],
-        e: CryptoAdaptor,
+        e: &CryptoAdaptor,
     ) -> Result<Vec<u8>>;
 }
 
