@@ -16,5 +16,5 @@ pub struct EncryptBody {
 
     pub ada: String,
 
-    pub padding: Padding
+    pub padding: Padding,
 }

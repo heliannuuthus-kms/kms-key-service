@@ -4,7 +4,10 @@ use sea_orm::{
     IntoActiveModel, QueryFilter,
 };
 
-use crate::{common::errors::Result, entity::prelude::*};
+use crate::{
+    common::errors::Result,
+    entity::{kms, prelude::*},
+};
 
 // batch insert metas
 pub async fn insert_or_update_key_metas<C: ConnectionTrait>(
@@ -40,4 +43,18 @@ pub async fn select_key_meta<C: ConnectionTrait>(
         .all(db)
         .await
         .context(format!("select key meta failed, key_id: {}", key_id))?)
+}
+
+pub async fn select_key_meta_by_kms<C: ConnectionTrait>(
+    db: &C,
+    kms_id: &str,
+) -> Result<Vec<KeyMetaModel>> {
+    Ok(KeyMetaEntity::find()
+        .filter(KeyMetaColumn::KmsId.eq(kms_id))
+        .all(db)
+        .await
+        .context(format!(
+            "select key meta by kms failed, kms_id: {}",
+            kms_id
+        ))?)
 }

@@ -12,9 +12,11 @@ use controller::{
     key_alias_controller::{list_key_alias, remove_key_alias, set_key_alias},
     key_controller::{
         create_key, create_key_version, import_key, import_key_params,
-        list_key_version, list_kms_keys,
     },
-    key_meta_controller::{change_key_state, get_key_meta, set_key_meta},
+    key_meta_controller::{
+        change_key_state, get_key_meta, list_key_version, list_kms_keys,
+        set_key_meta,
+    },
     kms_controller::{create_kms, destroy_kms, get_kms, set_kms},
     ApiDoc,
 };

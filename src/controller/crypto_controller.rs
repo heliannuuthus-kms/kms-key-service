@@ -29,7 +29,7 @@ pub async fn encrypt(
     State(States { db, .. }): State<States>,
     Json(body): Json<EncryptBody>,
 ) -> Result<impl IntoResponse> {
-  tracing::info!("encrypt data: body {:?}", body);
+    tracing::info!("encrypt data: body {:?}", body);
     Ok("")
 }
 

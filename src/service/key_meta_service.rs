@@ -5,11 +5,13 @@ use moka::future::Cache;
 use sea_orm::DbConn;
 
 use crate::{
-    cache::{self, prelude::RdConn},
+    cache::{self, key_meta, prelude::RdConn},
     common::errors::{Result, ServiceError},
     crypto::types::KEY_STATE_MAP,
     entity::prelude::*,
-    pojo::form::key_extra::KeyChangeStateBody,
+    pojo::{
+        form::key_extra::KeyChangeStateBody, result::key::KeyVersionResult,
+    },
     repository::key_meta_repository,
 };
 
@@ -22,30 +24,6 @@ lazy_static! {
             .time_to_idle(Duration::minutes(5).to_std().unwrap())
             .time_to_live(Duration::minutes(30).to_std().unwrap())
             .build();
-}
-
-pub async fn change_state(
-    rd: &RdConn,
-    db: &DbConn,
-    body: &KeyChangeStateBody,
-) -> Result<KeyMetaModel> {
-    // 待加分布式锁 redis rslock
-    let mut meta = get_main_key_meta(rd, db, &body.key_id).await?;
-    if !meta.state.eq(&body.from) {
-        return Err(ServiceError::Unsupported(format!(
-            "current key state is {:?}",
-            meta.state
-        )));
-    }
-    if !KEY_STATE_MAP[meta.state as usize][body.to as usize] {
-        return Err(ServiceError::BadRequest(format!(
-            "key state can`t change, from {:?} to {:?}",
-            meta.state, body.to
-        )));
-    }
-    meta.state = body.to;
-    set_key_meta(rd, db, meta.clone()).await?;
-    Ok(meta)
 }
 
 pub async fn set_key_meta(
@@ -105,4 +83,47 @@ pub async fn get_version_key_meta(
             "key_id is invalid, key_id: {}",
             key_id
         )))
+}
+
+pub async fn get_key_versions(
+    rd: &RdConn,
+    db: &DbConn,
+    key_id: &str,
+) -> Result<Vec<KeyVersionResult>> {
+    Ok(cache::key_meta::get_key_metas(rd, db, key_id)
+        .await?
+        .into_iter()
+        .map(|model| model.into())
+        .collect::<Vec<KeyVersionResult>>())
+}
+
+pub async fn get_key_meta_by_kms(
+    db: &DbConn,
+    kms_id: &str,
+) -> Result<Vec<KeyMetaModel>> {
+    key_meta_repository::select_key_meta_by_kms(db, kms_id).await
+}
+
+pub async fn change_state(
+    rd: &RdConn,
+    db: &DbConn,
+    body: &KeyChangeStateBody,
+) -> Result<KeyMetaModel> {
+    // 待加分布式锁 redis rslock
+    let mut meta = get_main_key_meta(rd, db, &body.key_id).await?;
+    if !meta.state.eq(&body.from) {
+        return Err(ServiceError::Unsupported(format!(
+            "current key state is {:?}",
+            meta.state
+        )));
+    }
+    if !KEY_STATE_MAP[meta.state as usize][body.to as usize] {
+        return Err(ServiceError::BadRequest(format!(
+            "key state can`t change, from {:?} to {:?}",
+            meta.state, body.to
+        )));
+    }
+    meta.state = body.to;
+    set_key_meta(rd, db, meta.clone()).await?;
+    Ok(meta)
 }

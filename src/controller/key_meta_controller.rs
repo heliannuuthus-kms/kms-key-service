@@ -4,7 +4,12 @@ use axum::{
 };
 
 use crate::{
-    common::{axum::Json, configs::Patch, errors::Result},
+    cache::key_meta,
+    common::{
+        axum::{Json, Query},
+        configs::Patch,
+        errors::Result,
+    },
     pojo::form::key_extra::{KeyChangeStateBody, KeyMetaPatchForm},
     service::key_meta_service::{self},
     States,
@@ -82,6 +87,53 @@ pub async fn change_key_state(
     tracing::info!("change key state, key_id: {}, body: {:?}", key_id, body);
     body.key_id = key_id;
     key_meta_service::change_state(&rd, &db, &body)
+        .await
+        .map(axum::Json)
+}
+
+#[utoipa::path(
+    get,
+    path="",
+    operation_id = "查询 kms 实例所有密钥列表",
+    context_path= "/kms/{kms_id}/keys",
+    params(
+        ("kms_id" = String, Path, description="kms 标识"),
+    ),
+    responses(
+        (status = 200, description = "", body = ()),
+        (status = 400, description = "illegal params")
+    ),
+  )]
+pub async fn list_kms_keys(
+    State(States { db, .. }): State<States>,
+    Path(kms_id): Path<String>,
+) -> Result<impl IntoResponse> {
+    tracing::info!("pagin kms key, kms_id: {}", kms_id,);
+
+    key_meta_service::get_key_meta_by_kms(&db, &kms_id)
+        .await
+        .map(axum::Json)
+}
+
+#[utoipa::path(
+    get,
+    path="",
+    operation_id = "查询密钥版本信息",
+    context_path= "/keys/{key_id}/versions",
+    params(
+        ("key_id" = String, Path, description="kms 标识"),
+      ),
+    responses(
+        (status = 200, description = "", body = ()),
+        (status = 400, description = "illegal params")
+    ),
+  )]
+pub async fn list_key_version(
+    State(States { db, rd, .. }): State<States>,
+    Path(key_id): Path<String>,
+) -> Result<impl IntoResponse> {
+    tracing::info!("list key versions, key_id: {}", key_id,);
+    key_meta_service::get_key_versions(&rd, &db, &key_id)
         .await
         .map(axum::Json)
 }

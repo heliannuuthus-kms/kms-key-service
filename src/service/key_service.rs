@@ -13,7 +13,7 @@ use super::{
 };
 use crate::{
     cache::{
-        self,
+        self, key_meta,
         prelude::{rdconn, redis_get, RdConn},
     },
     common::{
@@ -113,7 +113,6 @@ impl RotateExecutor {
                     )
                 })
                 .unwrap_or(default_interval);
-            tracing::info!("next rotate interval: {}", interval);
 
             delay.reset_after(Duration::seconds(interval).to_std().unwrap());
             delay.tick().await;
@@ -442,30 +441,6 @@ pub async fn get_version_key(
             "key_id is invalid, key_id: {}",
             key_id
         )))
-}
-
-pub async fn list_kms_keys(
-    db: &DbConn,
-    kms_id: &str,
-    paginator: &Paginator,
-) -> Result<PaginatedResult<Vec<KeyModel>>> {
-    paginated_result!(
-        key_repository::pagin_kms_keys(db, kms_id, paginator).await?,
-        paginator.limit.unwrap_or(10)
-    )
-}
-
-pub async fn list_key_versions(
-    db: &DbConn,
-    key_id: &str,
-    paginator: &Paginator,
-) -> Result<PaginatedResult<Vec<KeyVersionResult>>> {
-    let mut result = key_repository::pagin_key_version(db, key_id, paginator)
-        .await?
-        .into_iter()
-        .map(|model| model.into())
-        .collect::<Vec<KeyVersionResult>>();
-    paginated_result!(result, paginator.limit.unwrap_or(10))
 }
 
 pub async fn get_keys(db: &DbConn, key_id: &str) -> Result<Vec<KeyModel>> {

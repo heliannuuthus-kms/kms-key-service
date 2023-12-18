@@ -199,8 +199,6 @@ pub fn select_factory(
         KeyAlgorithm::Ecdsa | KeyAlgorithm::EciesSha1 => {
             Ok(Box::new(EcAlgorithmFactory {}))
         }
-        KeyAlgorithm::SM2DSA | KeyAlgorithm::SM2PKE => todo!(),
-        KeyAlgorithm::Sm4Gcm => todo!(),
         _ => Err(ServiceError::Unsupported(format!(
             "unsupported alg {:?}",
             alg
