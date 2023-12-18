@@ -27,12 +27,12 @@ use crate::{
     request_body = KeyCreateForm
 )]
 pub async fn create_key(
-    State(States { db, extra, .. }): State<States>,
+    State(States { db, rd, extra, .. }): State<States>,
     Json(form): Json<KeyCreateForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create master key, data: {:?}", form);
 
-    key_service::create_key(&db, extra.re, &form)
+    key_service::create_key(&rd, &db, extra.re, &form)
         .await
         .map(axum::Json)
 }
@@ -53,7 +53,7 @@ pub async fn import_key_params(
     Query(form): Query<KeyImportParamsQuery>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create import key material, data: {:?}", form);
-    key_service::generate_key_import_params(&db, &rd, &form)
+    key_service::generate_key_import_params(&rd, &db, &form)
         .await
         .map(axum::Json)
 }
@@ -75,7 +75,7 @@ pub async fn import_key(
     Json(form): Json<KeyImportForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("import key material, data: {:?}", form);
-    key_service::import_key_material(&db, &rd, &form)
+    key_service::import_key_material(&rd, &db, &form)
         .await
         .map(|_| axum::Json(json!({"key_id": form.key_id})))
 }
@@ -124,11 +124,11 @@ pub async fn list_kms_keys(
     ),
   )]
 pub async fn create_key_version(
-    State(States { db, extra, .. }): State<States>,
+    State(States { db, rd, extra, .. }): State<States>,
     Path(key_id): Path<String>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("create key version, key_id: {}", key_id);
-    key_service::create_key_version(&db, &extra.re, &key_id)
+    key_service::create_key_version(&rd, &db, &extra.re, &key_id)
         .await
         .map(axum::Json)
 }

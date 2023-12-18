@@ -6,7 +6,7 @@ use axum::{
 use crate::{
     common::{axum::Json, configs::Patch, errors::Result},
     pojo::form::key_extra::{KeyChangeStateBody, KeyMetaPatchForm},
-    service::key_meta_service,
+    service::key_meta_service::{self},
     States,
 };
 
@@ -25,14 +25,16 @@ use crate::{
   ),
 )]
 pub async fn set_key_meta(
-    State(States { db, .. }): State<States>,
+    State(States { db, rd, .. }): State<States>,
     Path(key_id): Path<String>,
     Json(form): Json<KeyMetaPatchForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("set key meta, key_id: {}, meta: {:?}", key_id, form);
-    let mut model = key_meta_service::get_main_key_meta(&db, &key_id).await?;
+    let mut model =
+        key_meta_service::get_main_key_meta(&rd, &db, &key_id).await?;
+
     model.patched(form);
-    key_meta_service::set_key_meta(&db, model.clone())
+    key_meta_service::set_key_meta(&rd, &db, model.clone())
         .await
         .map(|_| axum::Json(model))
 }
@@ -52,11 +54,11 @@ pub async fn set_key_meta(
     ),
   )]
 pub async fn get_key_meta(
-    State(States { db, .. }): State<States>,
+    State(States { db, rd, .. }): State<States>,
     Path(key_id): Path<String>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("get key meta, key_id: {}", key_id);
-    key_meta_service::get_main_key_meta(&db, &key_id)
+    key_meta_service::get_main_key_meta(&rd, &db, &key_id)
         .await
         .map(axum::Json)
 }
@@ -73,13 +75,13 @@ pub async fn get_key_meta(
     request_body = KeyChangeStateBody
 )]
 pub async fn change_key_state(
-    State(States { db, .. }): State<States>,
+    State(States { db, rd, .. }): State<States>,
     Path(key_id): Path<String>,
     Json(mut body): Json<KeyChangeStateBody>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("change key state, key_id: {}, body: {:?}", key_id, body);
     body.key_id = key_id;
-    key_meta_service::change_state(&db, &body)
+    key_meta_service::change_state(&rd, &db, &body)
         .await
         .map(axum::Json)
 }

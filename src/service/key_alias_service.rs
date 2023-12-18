@@ -2,6 +2,7 @@ use sea_orm::DbConn;
 
 use super::key_service::{self};
 use crate::{
+    cache::prelude::RdConn,
     common::{
         configs::env_var_default,
         datasource::{self, PaginatedResult, Paginator},
@@ -19,8 +20,13 @@ pub async fn get_aliases(
     key_alias_repository::select_key_aliases(db, key_id).await
 }
 
-pub async fn set_alias(db: &DbConn, key_id: &str, alias: &str) -> Result<()> {
-    let _main_key = key_service::get_main_key(db, key_id).await?;
+pub async fn set_alias(
+    rd: &RdConn,
+    db: &DbConn,
+    key_id: &str,
+    alias: &str,
+) -> Result<()> {
+    let _main_key = key_service::get_main_key(rd, db, key_id).await?;
     let aliases = get_aliases(db, key_id).await?;
     let limit = env_var_default::<usize>("KEY_ALIAS_LIMIT", 5);
     if aliases.len() >= limit {

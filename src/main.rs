@@ -3,7 +3,8 @@ use axum::{
     routing::{delete, get, patch, post},
     Router,
 };
-use common::{cache::RdConn, configs::env_var};
+use cache::prelude::{init as init_rd, RdConn};
+use common::{configs::env_var, log::init as init_log};
 use controller::{
     crypto_controller::{
         advance_encrypt, advance_sign, decrypt, encrypt, sign, verify,
@@ -23,6 +24,7 @@ use service::key_service::RotateExecutor;
 use utoipa::OpenApi;
 use utoipa_redoc::Redoc;
 
+mod cache;
 mod common;
 mod controller;
 mod crypto;
@@ -48,9 +50,9 @@ async fn main() {
     let openapi = ApiDoc::openapi();
     let api_doc = openapi.to_pretty_json().unwrap();
     dotenv().expect(".env file not found");
-    common::log::init();
+    init_log();
     let db = common::datasource::init().await.unwrap();
-    let rd = common::cache::init().await.unwrap();
+    let rd = init_rd().await.unwrap();
     let executor = RotateExecutor::new(db.clone(), rd.clone()).await;
     let state = States {
         db,
