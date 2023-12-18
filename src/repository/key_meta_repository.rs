@@ -1,5 +1,7 @@
+use anyhow::Context;
 use sea_orm::{
-    sea_query::OnConflict, ConnectionTrait, EntityTrait, IntoActiveModel,
+    sea_query::OnConflict, ColumnTrait, ConnectionTrait, EntityTrait,
+    IntoActiveModel, QueryFilter,
 };
 
 use crate::{common::errors::Result, entity::prelude::*};
@@ -27,4 +29,15 @@ pub async fn insert_or_update_key_metas<C: ConnectionTrait>(
     .exec(db)
     .await?;
     Ok(())
+}
+
+pub async fn select_key_meta<C: ConnectionTrait>(
+    db: &C,
+    key_id: &str,
+) -> Result<Vec<KeyMetaModel>> {
+    Ok(KeyMetaEntity::find()
+        .filter(KeyMetaColumn::KeyId.eq(key_id))
+        .all(db)
+        .await
+        .context(format!("select key meta failed, key_id: {}", key_id))?)
 }

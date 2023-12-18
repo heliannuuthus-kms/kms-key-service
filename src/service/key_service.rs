@@ -12,8 +12,8 @@ use super::{
     kms_service,
 };
 use crate::{
+    cache::prelude::{rdconn, redis_get, RdConn},
     common::{
-        cache::{self, redis_get, RdConn},
         configs,
         datasource::{self, PaginatedResult, Paginator},
         errors::{Result, ServiceError},
@@ -66,7 +66,7 @@ impl RotateExecutor {
     }
 
     pub async fn submit(&self, key_id: &str, interval: Duration) -> Result<()> {
-        let mut conn = cache::conn(&self.rd).await?;
+        let mut conn = rdconn(&self.rd).await?;
         let current_timestamp =
             (Utc::now().naive_local() + interval).timestamp();
         conn.zadd(&self.key(), key_id, current_timestamp).await?;
@@ -74,7 +74,7 @@ impl RotateExecutor {
     }
 
     pub async fn remove(&self, key_id: &str) -> Result<()> {
-        let mut conn = cache::conn(&self.rd).await?;
+        let mut conn = rdconn(&self.rd).await?;
         conn.zrem(self.key(), key_id).await?;
         Ok(())
     }
@@ -86,7 +86,7 @@ impl RotateExecutor {
             Duration::seconds(default_interval).to_std().unwrap(),
         );
         loop {
-            let mut conn = cache::conn(&self.rd).await?;
+            let mut conn = rdconn(&self.rd).await?;
 
             let mut lowest_key: Vec<(String, i64)> = conn
                 .zrangebyscore_limit_withscores(
@@ -243,7 +243,7 @@ pub async fn generate_key_import_params(
     let expires_in = Duration::days(1);
 
     let import_token = utils::generate_b64(128)?;
-    let mut conn = cache::conn(rd).await?;
+    let mut conn = rdconn(rd).await?;
     conn.set_ex(
         format!("kms:keys:import_material:{}", key_id),
         serde_json::to_string(&KeyMaterialImportParams {
