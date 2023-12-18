@@ -1,13 +1,10 @@
-use std::time::Duration;
-
 use redis::AsyncCommands;
 use sea_orm::DbConn;
-use serde_json::json;
 
 use super::prelude::{rdconn, redis_get, RdConn};
 use crate::{
     common::{configs::env_var_default, errors::Result},
-    entity::{key_meta, prelude::*},
+    entity::prelude::*,
     repository::key_meta_repository,
 };
 

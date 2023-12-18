@@ -8,11 +8,14 @@ use sea_orm::*;
 use serde_json::json;
 
 use super::{
-    key_meta_service::{self, get_key_metas, get_main_key_meta},
+    key_meta_service::{self, get_main_key_meta},
     kms_service,
 };
 use crate::{
-    cache::prelude::{rdconn, redis_get, RdConn},
+    cache::{
+        self,
+        prelude::{rdconn, redis_get, RdConn},
+    },
     common::{
         configs,
         datasource::{self, PaginatedResult, Paginator},
@@ -127,7 +130,8 @@ impl RotateExecutor {
                     key_ids
                         .iter()
                         .map(|key_id| async {
-                            create_key_version(&self.db, self, key_id).await
+                            create_key_version(&self.rd, &self.db, self, key_id)
+                                .await
                         })
                         .collect_vec(),
                 )
@@ -138,6 +142,7 @@ impl RotateExecutor {
 }
 
 pub async fn create_key(
+    rd: &RdConn,
     db: &DbConn,
     re: RotateExecutor,
     data: &KeyCreateForm,
@@ -218,18 +223,18 @@ pub async fn create_key(
     }
 
     save_key(db, &key).await?;
-    key_meta_service::set_key_meta(db, key_meta).await?;
+    key_meta_service::set_key_meta(rd, db, key_meta).await?;
 
     Ok(result)
 }
 
 pub async fn generate_key_import_params(
-    db: &DbConn,
     rd: &RdConn,
+    db: &DbConn,
     form: &KeyImportParamsQuery,
 ) -> Result<KeyMaterialImportParamsResult> {
     let key_id = &form.key_id;
-    let cmk_meta = get_main_key_meta(db, key_id).await?;
+    let cmk_meta = get_main_key_meta(rd, db, key_id).await?;
     if !cmk_meta.state.eq(&KeyState::PendingImport) {
         return Err(ServiceError::BadRequest(format!(
             "key is imported: {}",
@@ -265,8 +270,8 @@ pub async fn generate_key_import_params(
 }
 
 pub async fn import_key_material(
-    db: &DbConn,
     rd: &RdConn,
+    db: &DbConn,
     data: &KeyImportForm,
 ) -> Result<()> {
     let key_id = &data.key_id;
@@ -300,11 +305,15 @@ pub async fn import_key_material(
         &material_data.wrapping_algorithm.into(),
     )?;
 
-    let key_model: KeyModel = get_main_key(db, key_id).await?;
+    let key_model: KeyModel = get_main_key(rd, db, key_id).await?;
 
-    let key_meta_model =
-        key_meta_service::get_version_key_meta(db, key_id, &key_model.version)
-            .await?;
+    let key_meta_model = key_meta_service::get_version_key_meta(
+        rd,
+        db,
+        key_id,
+        &key_model.version,
+    )
+    .await?;
 
     let meta = algorithm::select_meta(key_meta_model.spec);
 
@@ -337,11 +346,12 @@ pub async fn import_key_material(
 }
 
 pub async fn create_key_version(
+    rd: &RdConn,
     db: &DbConn,
     re: &RotateExecutor,
     key_id: &str,
 ) -> Result<KeyVersionResult> {
-    let mut key_meta: KeyMetaModel = get_main_key_meta(db, key_id).await?;
+    let mut key_meta: KeyMetaModel = get_main_key_meta(rd, db, key_id).await?;
 
     // judge origin
     if KeyOrigin::External.eq(&key_meta.origin) {
@@ -371,7 +381,7 @@ pub async fn create_key_version(
 
     let key_meta_new = key_meta.renew(&key);
 
-    let mut key_metas = get_key_metas(db, key_id)
+    let mut key_metas = cache::key_meta::get_key_metas(rd, db, key_id)
         .await?
         .into_iter()
         .map(|mut meta| {
@@ -386,7 +396,7 @@ pub async fn create_key_version(
 
     key_metas.push(key_meta_new.clone());
 
-    key_meta_service::batch_set_key_meta(db, key_metas).await?;
+    key_meta_service::batch_set_key_meta(rd, db, key_metas).await?;
 
     if key_meta.rotation_interval >= 0 {
         let interval = Duration::seconds(key_meta.rotation_interval);
@@ -410,8 +420,12 @@ async fn batch_save_key(db: &DbConn, models: Vec<KeyModel>) -> Result<()> {
     Ok(())
 }
 
-pub async fn get_main_key(db: &DbConn, key_id: &str) -> Result<KeyModel> {
-    let meta = get_main_key_meta(db, key_id).await?;
+pub async fn get_main_key(
+    rd: &RdConn,
+    db: &DbConn,
+    key_id: &str,
+) -> Result<KeyModel> {
+    let meta = get_main_key_meta(rd, db, key_id).await?;
     get_version_key(db, key_id, &meta.version).await
 }
 

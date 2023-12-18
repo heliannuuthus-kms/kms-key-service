@@ -29,12 +29,12 @@ use crate::{
   ),
 )]
 pub async fn set_key_alias(
-    State(States { db, .. }): State<States>,
+    State(States { db, rd, .. }): State<States>,
     Path(key_id): Path<String>,
     Json(form): Json<KeyAliasCreateOrUpdateForm>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("set key alias, key_id: {}, alias: {:?}", key_id, form);
-    key_alias_service::set_alias(&db, &key_id, &form.alias).await?;
+    key_alias_service::set_alias(&rd, &db, &key_id, &form.alias).await?;
     Ok(())
 }
 
