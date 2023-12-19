@@ -1,12 +1,7 @@
 use anyhow::Context;
 use sea_orm::*;
 
-use crate::{
-    common::{
-        errors::Result,
-    },
-    entity::prelude::*,
-};
+use crate::{common::errors::Result, entity::prelude::*};
 
 // batch insert key
 pub async fn insert_keys<C: ConnectionTrait>(
