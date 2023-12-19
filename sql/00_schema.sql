@@ -9,13 +9,13 @@ CREATE TABLE IF NOT EXISTS t_kms (
   UNIQUE uniq_key_id(kms_id),
   INDEX idx_kms_name(kms_id)
 );
-
 CREATE TABLE IF NOT EXISTS t_key (
   _id BIGINT NOT NULL AUTO_INCREMENT,
   kms_id VARCHAR(32) NOT NULL COMMENT "kms 实例标识",
   key_id VARCHAR(32) NOT NULL COMMENT "主密钥标识",
   key_type ENUM('SYMMETRIC', "ASYMMETRIC", "UNKNWON") NOT NULL COMMENT "密钥类型 0: Symmetric，1: Asymmetric, 2: Unknown",
-  key_pair JSON COMMENT "密钥内容",
+  pri_key VARCHAR(4096) COMMENT "密钥私钥",
+  pub_key VARCHAR(4096) COMMENT "密钥公钥",
   `version` VARCHAR(32) NOT NULL COMMENT "密钥版本",
   updated_at DATETIME NOT NULL DEFAULT NOW() ON UPDATE CURRENT_TIMESTAMP,
   created_at DATETIME NOT NULL DEFAULT NOW(),
@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS t_key (
   UNIQUE uniq_key_id_version(key_id, `version`),
   INDEX idx_kms_id(kms_id)
 );
-
 CREATE TABLE IF NOT EXISTS t_key_meta (
   _id BIGINT NOT NULL AUTO_INCREMENT,
   kms_id VARCHAR(32) NOT NULL COMMENT "kms 实例标识",
@@ -41,11 +40,11 @@ CREATE TABLE IF NOT EXISTS t_key_meta (
   origin ENUM("KMS", "EXTERNAL") NOT NULL COMMENT "密钥来源，0: kms 创建，1: 密钥材料导入",
   description TEXT COMMENT "密钥描述",
   state ENUM(
-    "ENABLE",
-    "DISABLE",
+    "ENABLED",
+    "DISABLED",
     "PENDING_DELETION",
     "PENDING_IMPORT"
-  ) NOT NULL COMMENT "密钥状态, 0: enable，1: disable，2: pending_deletion，3: pending_import",
+  ) NOT NULL COMMENT "密钥状态, 0: enabled，1: disabled，2: pending_deletion，3: pending_import",
   `usage` ENUM("ENCRYPT/DECRYPT", "SIGN/VERIFY") NOT NULL COMMENT "密钥用途，0: encrypt/decrypt，1: sign/verify",
   `version` VARCHAR(32) NOT NULL COMMENT "密钥版本",
   primary_version VARCHAR(32) NOT NULL COMMENT "主密钥版本",
@@ -60,7 +59,6 @@ CREATE TABLE IF NOT EXISTS t_key_meta (
   INDEX idx_key_id(key_id),
   UNIQUE uniq_key_id_version(key_id, `version`)
 );
-
 CREATE TABLE IF NOT EXISTS t_key_alias (
   _id BIGINT NOT NULL AUTO_INCREMENT,
   key_id VARCHAR(32) NOT NULL COMMENT "主密钥标识",

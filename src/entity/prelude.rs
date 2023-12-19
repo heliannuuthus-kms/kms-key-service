@@ -29,16 +29,8 @@ impl KeyModel {
     pub fn generate_key(&mut self, spec: KeySpec) -> Result<&mut Self> {
         let key_alg_meta = algorithm::select_algorithm_meta(spec);
         let (left, right) = algorithm::generate_key(spec)?;
-        let pri_key = utils::encode64(&left);
-        self.key_pair =
-            Some(if KeyType::Symmetric.eq(&key_alg_meta.key_type) {
-                json!(SymmtricKeyPair { key_pair: pri_key })
-            } else {
-                json!(AsymmtricKeyPair {
-                    private_key: pri_key,
-                    public_key: utils::encode64(&right)
-                })
-            });
+        self.pub_key = Some(utils::encode64(&right));
+        self.pri_key = Some(utils::encode64(&left));
         Ok(self)
     }
 }

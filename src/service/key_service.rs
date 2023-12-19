@@ -1,8 +1,6 @@
 use anyhow::Context;
 use chrono::{Duration, NaiveDateTime, Utc};
 use itertools::Itertools;
-use lazy_static::lazy_static;
-use moka::future::Cache;
 use redis::AsyncCommands;
 use sea_orm::*;
 use serde_json::json;
@@ -39,17 +37,6 @@ use crate::{
     },
     repository::key_repository,
 };
-
-pub const KEY_CACHE_KEY: &str = "key_cache";
-
-lazy_static! {
-    static ref KEY_CACHE: Cache<String, Vec<KeyModel>> =
-        moka::future::CacheBuilder::new(64 * 1024 * 1024)
-            .name(KEY_CACHE_KEY)
-            .time_to_idle(Duration::minutes(5).to_std().unwrap())
-            .time_to_live(Duration::minutes(30).to_std().unwrap())
-            .build();
-}
 
 #[derive(Clone)]
 pub struct RotateExecutor {
@@ -273,8 +260,6 @@ pub async fn import_key_material(
 
     let meta = algorithm::select_algorithm_meta(key_meta_model.spec);
 
-    let key_pair = utils::encode64(&private_key);
-
     if meta.key_size != private_key.len() {
         return Err(ServiceError::BadRequest(format!(
             "key length is invalid, expect: {}, actul: {}",
@@ -284,18 +269,9 @@ pub async fn import_key_material(
     }
 
     let mut key_active_model = key_model.clone().into_active_model();
-
-    key_active_model.key_pair =
-        Set(Some(if KeyType::Symmetric.eq(&key_model.key_type) {
-            json!(SymmtricKeyPair { key_pair })
-        } else {
-            let public_key =
-                algorithm::derive_key(key_meta_model.spec, &private_key)?;
-            json!(AsymmtricKeyPair {
-                public_key: utils::encode64(&public_key),
-                private_key: key_pair.to_owned()
-            })
-        }));
+    let public_key = algorithm::derive_key(key_meta_model.spec, &private_key)?;
+    key_active_model.pri_key = Set(Some(utils::encode64(&private_key)));
+    key_active_model.pub_key = Set(Some(utils::encode64(&public_key)));
     key_repository::update_key(db, &key_active_model).await?;
 
     Ok(())
@@ -371,9 +347,18 @@ async fn batch_save_key(db: &DbConn, models: Vec<KeyModel>) -> Result<()> {
     key_repository::insert_keys(db, models.clone()).await?;
 
     for key_id in models.into_iter().map(|model| model.key_id).unique() {
-        KEY_CACHE.remove(&encode_key!(KEY_CACHE_KEY, key_id)).await;
+        cache::key::remove_keys(&key_id).await?
     }
     Ok(())
+}
+
+pub async fn get_keys(db: &DbConn, key_id: &str) -> Result<Vec<KeyModel>> {
+    let keys = cache::key::get_keys(db, key_id).await?;
+    if !keys.is_empty() {
+        Ok(keys)
+    } else {
+        Err(ServiceError::NotFount(format!("key is nonexistent")))
+    }
 }
 
 pub async fn get_main_key(
@@ -390,7 +375,7 @@ pub async fn get_version_key(
     key_id: &str,
     version: &str,
 ) -> Result<KeyModel> {
-    get_keys(db, key_id)
+    cache::key::get_keys(db, key_id)
         .await?
         .into_iter()
         .find(|key| key.version.eq(version))
@@ -398,17 +383,6 @@ pub async fn get_version_key(
             "key_id is invalid, key_id: {}",
             key_id
         )))
-}
-
-pub async fn get_keys(db: &DbConn, key_id: &str) -> Result<Vec<KeyModel>> {
-    let cache_key = encode_key!(KEY_CACHE_KEY, key_id);
-    if let Some(version_keys) = KEY_CACHE.get(&cache_key).await {
-        Ok(version_keys)
-    } else {
-        let ks = key_repository::select_key(db, key_id).await?;
-        KEY_CACHE.insert(cache_key, ks.clone()).await;
-        Ok(ks)
-    }
 }
 
 #[cfg(test)]

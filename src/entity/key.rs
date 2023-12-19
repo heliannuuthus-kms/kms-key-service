@@ -21,7 +21,8 @@ pub struct Model {
     pub key_id: String,
     pub kms_id: String,
     pub key_type: KeyType,
-    pub key_pair: Option<Json>,
+    pub pri_key: Option<String>,
+    pub pub_key: Option<String>,
     pub version: String,
     #[serde(skip)]
     #[sea_orm(updated_at, default_current_timestamp)]
@@ -68,7 +69,8 @@ impl Default for Model {
             key_id: Default::default(),
             kms_id: Default::default(),
             key_type: Default::default(),
-            key_pair: Default::default(),
+            pri_key: Default::default(),
+            pub_key: Default::default(),
             version: Default::default(),
             updated_at: Utc::now().naive_local(),
             created_at: Utc::now().naive_local(),

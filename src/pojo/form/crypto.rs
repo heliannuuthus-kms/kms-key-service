@@ -2,31 +2,32 @@ use std::fmt::Debug;
 
 use serde::{Deserialize, Serialize};
 
-use crate::crypto::types::{KeyAlgorithm, Padding};
+use crate::crypto::{
+    algorithm::{CryptoAdaptor, EncryptKits},
+    types::{KeyAlgorithm, Padding}, symm::generate_iv,
+};
 
 #[derive(Serialize, Deserialize)]
-pub struct KeyEncryptBody {
-    pub key_id: String,
+pub struct KeyCryptoBody {
+    pub plaintext: Option<String>,
 
-    pub plaintext: String,
-
-    pub ciphertext: String,
+    pub ciphertext: Option<String>,
 
     pub algorithm: KeyAlgorithm,
 
-    pub iv: String,
+    pub iv: Option<String>,
 
-    pub ada: String,
+    pub ada: Option<String>,
 
-    pub padding: Padding,
+    pub padding: bool,
 }
 
-impl Debug for KeyEncryptBody {
+impl Debug for KeyCryptoBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KeyEncryptBody")
-            .field("key_id", &self.key_id)
             .field("algorithm", &self.algorithm)
             .field("padding", &self.padding)
             .finish()
     }
 }
+

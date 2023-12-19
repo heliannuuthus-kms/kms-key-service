@@ -7,7 +7,7 @@ use sea_orm::DbConn;
 use crate::{
     cache::{self, prelude::RdConn},
     common::errors::{Result, ServiceError},
-    crypto::types::KEY_STATE_MAP,
+    crypto::types::{KeyState, KEY_STATE_MAP},
     entity::prelude::*,
     pojo::{
         form::key_extra::KeyChangeStateBody, result::key::KeyVersionResult,
@@ -56,7 +56,9 @@ pub async fn get_main_key_meta(
         .await?
         .into_iter()
         .filter_map(|meta| {
-            if meta.version.eq(&meta.primary_version) {
+            if meta.version.eq(&meta.primary_version)
+                && KeyState::Enabled.eq(&meta.state)
+            {
                 Some(meta)
             } else {
                 None
@@ -64,7 +66,7 @@ pub async fn get_main_key_meta(
         })
         .next()
         .ok_or(ServiceError::NotFount(format!(
-            "key_id is invalid, key_id: {}",
+            "primary key is invalid, key_id: {}",
             key_id
         )))
 }
@@ -78,10 +80,12 @@ pub async fn get_version_key_meta(
     cache::key_meta::get_key_metas(rd, db, key_id)
         .await?
         .into_iter()
-        .find(|model| model.version.eq(version))
+        .find(|meta| {
+            meta.version.eq(&meta.version) && KeyState::Enabled.eq(&meta.state)
+        })
         .ok_or(ServiceError::NotFount(format!(
-            "key_id is invalid, key_id: {}",
-            key_id
+            "key is invalid, key_id: {}, version: {}",
+            key_id, version
         )))
 }
 

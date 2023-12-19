@@ -51,13 +51,13 @@ pub enum MessageDigest {
     Sha3_512,
 }
 
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Padding {
     Pkcs7Padding,
+    #[default]
     NoPadding,
 }
-
 #[derive(
     Deserialize,
     Serialize,
