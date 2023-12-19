@@ -31,7 +31,7 @@ use crate::{
         prelude::*,
     },
     pojo::{
-        form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
+        form::key::{KeyImportBody, KeyImportParamsQuery},
         result::key::{
             KeyCreateResult, KeyMaterialImportParams,
             KeyMaterialImportParamsResult, KeyVersionResult,
@@ -142,20 +142,13 @@ pub async fn create_key(
     rd: &RdConn,
     db: &DbConn,
     re: RotateExecutor,
-    data: &KeyCreateForm,
+    key_meta: &mut KeyMetaModel,
 ) -> Result<KeyCreateResult> {
-    let key_alg_meta = algorithm::select_meta(data.spec);
+    let key_alg_meta = algorithm::select_algorithm_meta(key_meta.spec);
 
-    if !key_alg_meta.key_usage.contains(&data.usage) {
-        return Err(ServiceError::BadRequest(format!(
-            "unsupported key usage({:?})",
-            data.usage
-        )));
-    }
+    let kms_id = &key_meta.kms_id;
 
-    let kms_id = &data.kms_id;
-
-    kms_service::get_kms(db, kms_id).await?;
+    kms_service::get_kms(rd, db, kms_id).await?;
 
     let key_id = &utils::generate_b62(32)?;
 
@@ -167,61 +160,27 @@ pub async fn create_key(
         ..Default::default()
     };
 
-    let mut key_meta = KeyMetaModel {
-        kms_id: kms_id.to_owned(),
-        key_id: key_id.to_owned(),
-        description: data.description.to_owned(),
-        origin: data.origin,
-        spec: data.spec,
-        usage: data.usage,
-        version: key.version.clone(),
-        primary_version: key.version.clone(),
-        ..Default::default()
-    };
-    let mut result = KeyCreateResult {
-        kms_id: kms_id.to_owned(),
-        key_id: key_id.to_owned(),
-        key_type: key_alg_meta.key_type,
-        key_spec: key_meta.spec,
-        key_usage: key_meta.usage,
-        key_origin: key_meta.origin,
-        version: key_meta.primary_version.to_owned(),
-        primary_key_version: key_meta.primary_version.to_owned(),
-        ..Default::default()
-    };
+    key_meta.key_id = key_id.to_owned();
+    key_meta.version = key.version.to_owned();
+    key_meta.primary_version = key.version.to_owned();
 
     if KeyOrigin::Kms.eq(&key_meta.origin) {
-        key.generate_key(data.spec)?;
+        key.generate_key(key_meta.spec)?;
     } else {
-        if !algorithm::SUPPORTED_EXTERNAL_SPEC.contains(&data.spec) {
-            return Err(ServiceError::Unsupported(format!(
-                "external marterial spec is not supported: {:?}",
-                data.spec,
-            )));
-        }
         key_meta.state = KeyState::PendingImport;
-        result.key_state = key_meta.state
     };
 
     // fill key rotation interval
-    if data.enable_automatic_rotation {
-        if let Some(ri) = data.rotation_interval {
-            key_meta.rotation_interval = ri.num_seconds();
-            result.rotate_interval = Some(ri);
-            result.next_rotated_at = Some(key_meta.created_at + ri);
-            re.submit(key_id, ri).await?;
-        } else {
-            return Err(ServiceError::BadRequest(
-                "please set `rotation_interval`, if enable \
-                 `enable_automatic_rotation`"
-                    .to_owned(),
-            ));
-        }
+    if key_meta.rotation_interval > 0 {
+        re.submit(key_id, Duration::seconds(key_meta.rotation_interval))
+            .await?;
     }
 
     save_key(db, &key).await?;
-    key_meta_service::set_key_meta(rd, db, key_meta).await?;
+    key_meta_service::set_key_meta(rd, db, key_meta.clone()).await?;
 
+    let mut result: KeyCreateResult = key_meta.clone().into();
+    result.key_type = key_alg_meta.key_type;
     Ok(result)
 }
 
@@ -269,7 +228,7 @@ pub async fn generate_key_import_params(
 pub async fn import_key_material(
     rd: &RdConn,
     db: &DbConn,
-    data: &KeyImportForm,
+    data: &KeyImportBody,
 ) -> Result<()> {
     let key_id = &data.key_id;
     let material_data = match redis_get::<KeyMaterialImportParams>(
@@ -312,7 +271,7 @@ pub async fn import_key_material(
     )
     .await?;
 
-    let meta = algorithm::select_meta(key_meta_model.spec);
+    let meta = algorithm::select_algorithm_meta(key_meta_model.spec);
 
     let key_pair = utils::encode64(&private_key);
 
@@ -358,9 +317,9 @@ pub async fn create_key_version(
     }
 
     // judge state
-    types::assert_state(KeyState::Enable, key_meta.state)?;
+    types::assert_state(KeyState::Enabled, key_meta.state)?;
 
-    let key_alg_meta = algorithm::select_meta(key_meta.spec);
+    let key_alg_meta = algorithm::select_algorithm_meta(key_meta.spec);
 
     let mut key = KeyModel {
         kms_id: key_meta.kms_id.to_owned(),

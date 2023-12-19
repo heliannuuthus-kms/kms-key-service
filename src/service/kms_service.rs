@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use sea_orm::DbConn;
 
 use crate::{
+    cache::{self, prelude::RdConn},
     common::errors::{Result, ServiceError},
     encode_key,
     entity::prelude::KmsModel,
@@ -30,30 +31,27 @@ pub async fn create_kms(db: &DbConn, model: KmsModel) -> Result<KmsResult> {
     })
 }
 
-pub async fn delete_kms(db: &DbConn, kms_id: &str) -> Result<()> {
+pub async fn delete_kms(rd: &RdConn, db: &DbConn, kms_id: &str) -> Result<()> {
     kms_repository::delete_kms_instance(db, kms_id).await?;
 
-    KMS_CACHE.remove(&encode_key!(KMS_CACHE_KEY, kms_id)).await;
+    cache::kms::remove_kms(rd, kms_id).await?;
 
     Ok(())
 }
 
-pub async fn get_kms(db: &DbConn, kms_id: &str) -> Result<KmsModel> {
-    let cache_key = encode_key!(KMS_CACHE_KEY, kms_id);
-    Ok(match KMS_CACHE.get(&cache_key).await {
+pub async fn get_kms(
+    rd: &RdConn,
+    db: &DbConn,
+    kms_id: &str,
+) -> Result<KmsModel> {
+    Ok(match cache::kms::get_kms(rd, db, kms_id).await? {
         Some(model) => model,
-        None => match kms_repository::select_kms(db, kms_id).await? {
-            Some(kms_model) => {
-                KMS_CACHE.insert(cache_key, kms_model.clone()).await;
-                kms_model
-            }
-            None => {
-                return Err(ServiceError::NotFount(format!(
-                    "kms instant is nonexsitant, kms_id: {}",
-                    kms_id
-                )))
-            }
-        },
+        None => {
+            return Err(ServiceError::NotFount(format!(
+                "kms instant is nonexsitant, kms_id: {}",
+                kms_id
+            )))
+        }
     })
 }
 

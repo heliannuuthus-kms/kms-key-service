@@ -106,7 +106,7 @@ pub fn select_wrapping_meta(spec: WrappingKeySpec) -> KeyAlgorithmMeta {
     }
 }
 
-pub fn select_meta(spec: KeySpec) -> KeyAlgorithmMeta {
+pub fn select_algorithm_meta(spec: KeySpec) -> KeyAlgorithmMeta {
     let (_nid, size) = spec.into();
     match spec {
         KeySpec::Aes128 | KeySpec::SM4 => KeyAlgorithmMeta {

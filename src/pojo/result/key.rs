@@ -1,4 +1,4 @@
-use chrono::{Duration, NaiveDateTime};
+use chrono::{Duration, NaiveDateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use utoipa::ToSchema;
@@ -28,6 +28,31 @@ pub struct KeyCreateResult {
     pub rotate_interval: Option<Duration>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_rotated_at: Option<NaiveDateTime>,
+}
+
+impl Into<KeyCreateResult> for KeyMetaModel {
+    fn into(self) -> KeyCreateResult {
+        KeyCreateResult {
+            kms_id: self.kms_id.to_owned(),
+            key_id: self.key_id.to_owned(),
+            key_origin: self.origin,
+            key_spec: self.spec,
+            key_usage: self.usage,
+            key_state: self.state,
+            version: self.version.to_owned(),
+            primary_key_version: self.primary_version.to_owned(),
+            rotate_interval: Some(self.rotation_interval)
+                .filter(|ri| ri == &0)
+                .map(Duration::seconds),
+            next_rotated_at: Some(self.rotation_interval)
+                .filter(|ri| ri == &0)
+                .map(|ri| {
+                    let rotation = Duration::seconds(ri);
+                    (Utc::now() + rotation).naive_local()
+                }),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, ToSchema)]

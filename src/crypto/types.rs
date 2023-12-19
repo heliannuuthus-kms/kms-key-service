@@ -209,13 +209,13 @@ impl From<KeySpec> for (Nid, usize) {
 pub enum KeyState {
     // 密钥默认处于 enable 状态
     #[default]
-    #[sea_orm(string_value = "ENABLE")]
-    Enable = 0,
+    #[sea_orm(string_value = "ENABLED")]
+    Enabled = 0,
     // 处于 Disable
     // 状态的密钥不可删除，不可使用（加解密，
     // 签名验签等），可查询，可创建别名
-    #[sea_orm(string_value = "DISABLE")]
-    Disable = 1,
+    #[sea_orm(string_value = "DISABLED")]
+    Disabled = 1,
     // 待删除的密钥，
     #[sea_orm(string_value = "PENDING_DELETION")]
     PendingDeletion = 2,
@@ -262,8 +262,8 @@ impl Display for KeyStateStatus {
 impl From<KeyState> for KeyStateStatus {
     fn from(value: KeyState) -> Self {
         match value {
-            KeyState::Enable => KeyStateStatus::RejectedEnable,
-            KeyState::Disable => KeyStateStatus::RejectedDisable,
+            KeyState::Enabled => KeyStateStatus::RejectedEnable,
+            KeyState::Disabled => KeyStateStatus::RejectedDisable,
             KeyState::PendingDeletion => KeyStateStatus::PendingPendingDeletion,
             KeyState::PendingImport => KeyStateStatus::PendingPendingImport,
         }

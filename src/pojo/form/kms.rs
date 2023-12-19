@@ -8,15 +8,15 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, Debug, ToSchema)]
-pub struct KmsCreateForm {
+pub struct KmsCreateBody {
     name: String,
     description: Option<String>,
 }
 
-impl TryFrom<KmsCreateForm> for KmsModel {
+impl TryFrom<KmsCreateBody> for KmsModel {
     type Error = ServiceError;
 
-    fn try_from(value: KmsCreateForm) -> Result<Self, Self::Error> {
+    fn try_from(value: KmsCreateBody) -> Result<Self, Self::Error> {
         Ok(kms::Model {
             kms_id: generate_b62(32)?,
             name: value.name,
