@@ -27,7 +27,7 @@ use crate::{
 
 impl KeyModel {
     pub fn generate_key(&mut self, spec: KeySpec) -> Result<&mut Self> {
-        let key_alg_meta = algorithm::select_meta(spec);
+        let key_alg_meta = algorithm::select_algorithm_meta(spec);
         let (left, right) = algorithm::generate_key(spec)?;
         let pri_key = utils::encode64(&left);
         self.key_pair =

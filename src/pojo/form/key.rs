@@ -5,12 +5,15 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DurationSeconds};
 use utoipa::{IntoParams, ToSchema};
 
-use crate::crypto::types::{
-    KeyOrigin, KeySpec, KeyUsage, WrappingKeyAlgorithm, WrappingKeySpec,
+use crate::{
+    crypto::types::{
+        KeyOrigin, KeySpec, KeyUsage, WrappingKeyAlgorithm, WrappingKeySpec,
+    },
+    entity::prelude::KeyMetaModel,
 };
 #[serde_as]
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug)]
-pub struct KeyCreateForm {
+pub struct KeyCreateBody {
     pub kms_id: String,
     pub description: Option<String>,
     #[serde(rename = "key_usage")]
@@ -19,9 +22,26 @@ pub struct KeyCreateForm {
     pub origin: KeyOrigin,
     #[serde(rename = "key_spec")]
     pub spec: KeySpec,
-    pub enable_automatic_rotation: bool,
     #[serde_as(as = "Option<DurationSeconds<i64>>")]
     pub rotation_interval: Option<Duration>,
+}
+
+impl Into<KeyMetaModel> for KeyCreateBody {
+    fn into(self) -> KeyMetaModel {
+        KeyMetaModel {
+            kms_id: self.kms_id.to_owned(),
+            spec: self.spec,
+            origin: self.origin,
+            description: self.description,
+            state: crate::crypto::types::KeyState::Enabled,
+            usage: self.usage,
+            rotation_interval: self
+                .rotation_interval
+                .map(|ri| ri.num_seconds())
+                .unwrap_or_default(),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Clone, Debug, IntoParams)]
@@ -33,7 +53,7 @@ pub struct KeyImportParamsQuery {
 
 #[serde_as]
 #[derive(Serialize, Deserialize, ToSchema, Clone)]
-pub struct KeyImportForm {
+pub struct KeyImportBody {
     pub key_id: String,
     pub encrypted_key_material: String,
     pub import_token: String,
@@ -41,7 +61,7 @@ pub struct KeyImportForm {
     pub key_material_expire_in: Option<Duration>,
 }
 
-impl Debug for KeyImportForm {
+impl Debug for KeyImportBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("KeyImportForm")
             .field("key_id", &self.key_id)

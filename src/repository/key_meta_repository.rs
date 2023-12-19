@@ -17,6 +17,7 @@ pub async fn insert_or_update_key_metas<C: ConnectionTrait>(
     .on_conflict(
         OnConflict::columns([KeyMetaColumn::KeyId, KeyMetaColumn::Version])
             .update_columns([
+                KeyMetaColumn::State,
                 KeyMetaColumn::RotationInterval,
                 KeyMetaColumn::Description,
                 KeyMetaColumn::PrimaryVersion,

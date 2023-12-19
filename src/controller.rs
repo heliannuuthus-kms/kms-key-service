@@ -9,12 +9,12 @@ use crate::{
     entity::prelude::*,
     pojo::{
         form::{
-            key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
+            key::{KeyCreateBody, KeyImportBody, KeyImportParamsQuery},
             key_extra::{
                 KeyAliasCreateOrUpdateForm, KeyAliasDeleteForm,
                 KeyChangeStateBody, KeyMetaPatchForm,
             },
-            kms::{KmsCreateForm, KmsPatchForm},
+            kms::{KmsCreateBody, KmsPatchForm},
         },
         result::{
             key::{
@@ -39,12 +39,12 @@ pub mod kms_controller;
         KeyAliasModel,
         KeyMetaModel,
         KmsResult,
-        KmsCreateForm,
+        KmsCreateBody,
         KmsPatchForm,
-        KeyCreateForm,
+        KeyCreateBody,
         KeyChangeStateBody,
         KeyImportParamsQuery,
-        KeyImportForm,
+        KeyImportBody,
         KeyCreateResult,
         KeyMaterialImportParamsResult,
         KeyAliasDeleteForm,

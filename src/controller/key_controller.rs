@@ -7,9 +7,10 @@ use serde_json::json;
 use crate::{
     common::{
         axum::{Json, Query},
-        errors::Result,
+        errors::{Result, ServiceError},
     },
-    pojo::form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
+    crypto::algorithm,
+    pojo::form::key::{KeyCreateBody, KeyImportBody, KeyImportParamsQuery},
     service::key_service,
     States,
 };
@@ -27,11 +28,27 @@ use crate::{
 )]
 pub async fn create_key(
     State(States { db, rd, extra, .. }): State<States>,
-    Json(form): Json<KeyCreateForm>,
+    Json(body): Json<KeyCreateBody>,
 ) -> Result<impl IntoResponse> {
-    tracing::info!("create master key, data: {:?}", form);
+    tracing::info!("create master key, body: {:?}", body);
 
-    key_service::create_key(&rd, &db, extra.re, &form)
+    let key_alg_meta = algorithm::select_algorithm_meta(body.spec.clone());
+
+    if !key_alg_meta.key_usage.contains(&body.usage) {
+        return Err(ServiceError::Unsupported(format!(
+            "unsupported key usage({:?})",
+            body.usage
+        )));
+    }
+    if !algorithm::SUPPORTED_EXTERNAL_SPEC.contains(&body.spec) {
+        return Err(ServiceError::Unsupported(format!(
+            "external marterial spec is not supported: {:?}",
+            body.spec,
+        )));
+    }
+
+    let mut meta = body.into();
+    key_service::create_key(&rd, &db, extra.re, &mut meta)
         .await
         .map(axum::Json)
 }
@@ -71,7 +88,7 @@ pub async fn import_key_params(
 #[axum::debug_handler]
 pub async fn import_key(
     State(States { db, rd, .. }): State<States>,
-    Json(form): Json<KeyImportForm>,
+    Json(form): Json<KeyImportBody>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("import key material, data: {:?}", form);
     key_service::import_key_material(&rd, &db, &form)

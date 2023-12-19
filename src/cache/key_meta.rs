@@ -8,7 +8,7 @@ use crate::{
     repository::key_meta_repository,
 };
 
-const META_KEY: &str = "META_KEY_EXPIRES";
+const META_KEY: &str = "KEY_META_EXPIRES";
 
 pub fn encode_key(key_id: &str) -> String {
     format!("kms:key:meta:{}", key_id)
