@@ -1,11 +1,15 @@
 use axum::response::IntoResponse;
+use pojo::form::crypto::KeyEncryptBody;
 
-use crate::common::errors::Result;
+use crate::{
+    common::{axum::Json, errors::Result},
+    pojo,
+};
 
 #[utoipa::path(
   post,
-  path="/encrypt/{:version}",
-  operation_id = "加密",
+  path="/encrypt",
+  operation_id = "使用默认密钥加密",
   context_path= "/keys/{key_id}",
   params(
     ("key_id" = String, Path, description="kms 标识"),
@@ -15,7 +19,10 @@ use crate::common::errors::Result;
       (status = 400, description = "illegal params")
   ),
 )]
-pub async fn encrypt() -> Result<impl IntoResponse> {
+pub async fn encrypt(
+    Json(body): Json<KeyEncryptBody>,
+) -> Result<impl IntoResponse> {
+    tracing::info!("encrypt data: body {:?}", body);
     Ok("")
 }
 
@@ -39,7 +46,7 @@ pub async fn advance_encrypt() -> Result<impl IntoResponse> {
 #[utoipa::path(
   post,
   path="/decrypt",
-  operation_id = "解密",
+  operation_id = "使用默认密钥解密",
   context_path= "/keys/{key_id}",
   params(
     ("key_id" = String, Path, description="kms 标识"),

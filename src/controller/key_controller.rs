@@ -7,7 +7,6 @@ use serde_json::json;
 use crate::{
     common::{
         axum::{Json, Query},
-        datasource::Paginator,
         errors::Result,
     },
     pojo::form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
@@ -81,36 +80,6 @@ pub async fn import_key(
 }
 
 #[utoipa::path(
-    get,
-    path="",
-    operation_id = "分页查询 kms 实例所有密钥列表",
-    context_path= "/kms/{kms_id}/keys",
-    params(
-        ("kms_id" = String, Path, description="kms 标识"),
-        Paginator
-    ),
-    responses(
-        (status = 200, description = "", body = ()),
-        (status = 400, description = "illegal params")
-    ),
-  )]
-pub async fn list_kms_keys(
-    State(States { db, .. }): State<States>,
-    Path(kms_id): Path<String>,
-    Query(paginator): Query<Paginator>,
-) -> Result<impl IntoResponse> {
-    tracing::info!(
-        "pagin kms key, kms_id: {}, paginator: {:?}",
-        kms_id,
-        paginator
-    );
-
-    key_service::list_kms_keys(&db, &kms_id, &paginator)
-        .await
-        .map(axum::Json)
-}
-
-#[utoipa::path(
     post,
     path="/versions",
     operation_id = "新增密钥版本",
@@ -129,36 +98,6 @@ pub async fn create_key_version(
 ) -> Result<impl IntoResponse> {
     tracing::info!("create key version, key_id: {}", key_id);
     key_service::create_key_version(&rd, &db, &extra.re, &key_id)
-        .await
-        .map(axum::Json)
-}
-
-#[utoipa::path(
-    get,
-    path="",
-    operation_id = "分页查询密钥版本信息",
-    context_path= "/keys/{key_id}/versions",
-    params(
-        ("key_id" = String, Path, description="kms 标识"),
-        Paginator
-      ),
-    responses(
-        (status = 200, description = "", body = ()),
-        (status = 400, description = "illegal params")
-    ),
-  )]
-pub async fn list_key_version(
-    State(States { db, .. }): State<States>,
-    Path(key_id): Path<String>,
-    Query(paginator): Query<Paginator>,
-) -> Result<impl IntoResponse> {
-    tracing::info!(
-        "pagin key meta, key_id: {}, paginator: {:?}",
-        key_id,
-        paginator
-    );
-
-    key_service::list_key_versions(&db, &key_id, &paginator)
         .await
         .map(axum::Json)
 }

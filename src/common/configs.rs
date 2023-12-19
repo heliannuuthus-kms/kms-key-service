@@ -1,5 +1,3 @@
-use serde::{de::Deserialize, Deserializer};
-
 pub fn env_var<T>(name: &str) -> T
 where
     T: std::str::FromStr,
@@ -27,12 +25,4 @@ where
 
 pub trait Patch<T> {
     fn patched(&mut self, patched: T) -> &mut Self;
-}
-
-pub fn patch<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
-where
-    D: Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Ok(Some(Option::deserialize(deserializer)?))
 }
