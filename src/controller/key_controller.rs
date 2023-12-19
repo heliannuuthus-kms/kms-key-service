@@ -5,14 +5,12 @@ use axum::{
 use serde_json::json;
 
 use crate::{
-    cache::key_meta,
     common::{
         axum::{Json, Query},
-        datasource::Paginator,
         errors::Result,
     },
     pojo::form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
-    service::{key_meta_service, key_service},
+    service::{key_service},
     States,
 };
 

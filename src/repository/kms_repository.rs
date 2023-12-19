@@ -1,14 +1,10 @@
 use anyhow::Context;
 use sea_orm::{
-    sea_query::OnConflict, ColumnTrait, ConnectionTrait, DbConn, EntityTrait,
-    IntoActiveModel, QueryFilter, QuerySelect,
+    sea_query::OnConflict, ColumnTrait, DbConn, EntityTrait, IntoActiveModel,
+    QueryFilter,
 };
 
-use crate::{
-    common::{datasource::Paginator, errors::Result},
-    entity::prelude::*,
-    pagin,
-};
+use crate::{common::errors::Result, entity::prelude::*};
 
 pub async fn select_kms(db: &DbConn, kms_id: &str) -> Result<Option<KmsModel>> {
     Ok(KmsEntity::find()

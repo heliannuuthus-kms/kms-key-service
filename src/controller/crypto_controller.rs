@@ -1,21 +1,15 @@
-use axum::{
-    extract::{Path, State},
-    response::IntoResponse,
-};
-use openssl::hash::MessageDigest;
+use axum::response::IntoResponse;
 use pojo::form::crypto::KeyEncryptBody;
 
 use crate::{
     common::{axum::Json, errors::Result},
-    crypto, pojo,
-    service::{key_meta_service, key_service},
-    States,
+    pojo,
 };
 
 #[utoipa::path(
   post,
   path="/encrypt",
-  operation_id = "加密",
+  operation_id = "使用默认密钥加密",
   context_path= "/keys/{key_id}",
   params(
     ("key_id" = String, Path, description="kms 标识"),
@@ -26,7 +20,6 @@ use crate::{
   ),
 )]
 pub async fn encrypt(
-    State(States { db, .. }): State<States>,
     Json(body): Json<KeyEncryptBody>,
 ) -> Result<impl IntoResponse> {
     tracing::info!("encrypt data: body {:?}", body);
@@ -53,7 +46,7 @@ pub async fn advance_encrypt() -> Result<impl IntoResponse> {
 #[utoipa::path(
   post,
   path="/decrypt",
-  operation_id = "解密",
+  operation_id = "使用默认密钥解密",
   context_path= "/keys/{key_id}",
   params(
     ("key_id" = String, Path, description="kms 标识"),

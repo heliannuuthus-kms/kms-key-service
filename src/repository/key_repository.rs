@@ -3,11 +3,9 @@ use sea_orm::*;
 
 use crate::{
     common::{
-        datasource::{self, Paginator},
         errors::Result,
     },
     entity::prelude::*,
-    pagin,
 };
 
 // batch insert key

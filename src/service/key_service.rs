@@ -13,12 +13,11 @@ use super::{
 };
 use crate::{
     cache::{
-        self, key_meta,
+        self,
         prelude::{rdconn, redis_get, RdConn},
     },
     common::{
         configs,
-        datasource::{self, PaginatedResult, Paginator},
         errors::{Result, ServiceError},
         utils,
     },
@@ -31,7 +30,6 @@ use crate::{
         key::{AsymmtricKeyPair, SymmtricKeyPair},
         prelude::*,
     },
-    paginated_result,
     pojo::{
         form::key::{KeyCreateForm, KeyImportForm, KeyImportParamsQuery},
         result::key::{

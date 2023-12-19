@@ -5,7 +5,7 @@ use moka::future::Cache;
 use sea_orm::DbConn;
 
 use crate::{
-    cache::{self, key_meta, prelude::RdConn},
+    cache::{self, prelude::RdConn},
     common::errors::{Result, ServiceError},
     crypto::types::KEY_STATE_MAP,
     entity::prelude::*,

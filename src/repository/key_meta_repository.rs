@@ -4,10 +4,7 @@ use sea_orm::{
     IntoActiveModel, QueryFilter,
 };
 
-use crate::{
-    common::errors::Result,
-    entity::{kms, prelude::*},
-};
+use crate::{common::errors::Result, entity::prelude::*};
 
 // batch insert metas
 pub async fn insert_or_update_key_metas<C: ConnectionTrait>(
