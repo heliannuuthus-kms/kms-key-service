@@ -26,16 +26,16 @@ pub struct KeyCreateBody {
     pub rotation_interval: Option<Duration>,
 }
 
-impl Into<KeyMetaModel> for KeyCreateBody {
-    fn into(self) -> KeyMetaModel {
+impl From<KeyCreateBody> for KeyMetaModel {
+    fn from(val: KeyCreateBody) -> Self {
         KeyMetaModel {
-            kms_id: self.kms_id.to_owned(),
-            spec: self.spec,
-            origin: self.origin,
-            description: self.description,
+            kms_id: val.kms_id.to_owned(),
+            spec: val.spec,
+            origin: val.origin,
+            description: val.description,
             state: crate::crypto::types::KeyState::Enabled,
-            usage: self.usage,
-            rotation_interval: self
+            usage: val.usage,
+            rotation_interval: val
                 .rotation_interval
                 .map(|ri| ri.num_seconds())
                 .unwrap_or_default(),

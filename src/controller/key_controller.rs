@@ -32,7 +32,7 @@ pub async fn create_key(
 ) -> Result<impl IntoResponse> {
     tracing::info!("create master key, body: {:?}", body);
 
-    let key_alg_meta = algorithm::select_algorithm_meta(body.spec.clone());
+    let key_alg_meta = algorithm::select_algorithm_meta(body.spec);
 
     if !key_alg_meta.key_usage.contains(&body.usage) {
         return Err(ServiceError::Unsupported(format!(
